@@ -1,0 +1,74 @@
+class AdvancedChatBot:
+    def __init__(self, html_source=None):
+        self.text = None
+        self.chunks=None
+        self.embeddings = None
+        self.embedded_documents = None
+        self.vectorstore = None
+        self.retriever = None
+        self.prompt = None
+        self.llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.2)
+        self.docs = None
+        self.inputs = None
+
+    def scrape_url(self, url):
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text,"html.parser")
+
+        faq_sections = soup.find_all(['li','h2','h3','p'])
+        self.text = "\n".join([section.get_text(strip=True) for section in faq_sections])
+        return self.text
+
+    def split_text(self):
+        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50, separators=["\n",".","?","!"])
+        self.chunks = splitter.split_text(self.text)
+        return self.chunks
+    
+    def embed_text(self):
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.embedded_documents = self.embeddings.embed_documents(self.chunks)
+        return self.embeddings, self.embedded_documents
+
+    def build_vector_db(self):
+        docs = [Document(page_content=chunk) for chunk in self.chunks]
+        self.vectorstore = FAISS.from_documents(docs,self.embeddings)
+        return self.vectorstore
+    
+
+    def query(self, question, k=3):
+        if self.vectorstore is None:
+            self.build_vector_db()
+    
+        # Retrieve most similar docs
+        docs = self.vectorstore.similarity_search(question, k=k)
+        context = "\n".join(doc.page_content for doc in docs)
+    
+        # Create prompt
+        prompt = f"""Based on the following context, answer the question:
+    
+Context:
+    {context}
+    
+Question:
+    {question}
+    
+Answer:"""
+    
+        # Use the LLM to generate an answer
+        response = self.llm.invoke(prompt)
+        return response.content
+
+    def process_all(self,html_content):
+            self.scrape_url(html_content)
+            self.split_text()
+            self.embed_text()
+            self.build_vector_db()
+            
+            return True
+    
+        
+        
+        
+        
+        
+    
