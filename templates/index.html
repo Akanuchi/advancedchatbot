@@ -5,10 +5,11 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Try Akanuchi's Chatbot</h1>
-    <form method="post" action="/query">
-        <label for="url">Web Page URL:</label><br>
-        <input type="text" id="url" name="url" required><br><br>
+    <h1>Try Akanuchi's PDF Chatbot</h1>
+
+    <form method="post" action="/query" enctype="multipart/form-data">
+        <label for="file">Upload a PDF file:</label><br>
+        <input type="file" id="file" name="file" accept=".pdf" required><br><br>
 
         <label for="question">Your Question:</label><br>
         <input type="text" id="question" name="question" required><br><br>

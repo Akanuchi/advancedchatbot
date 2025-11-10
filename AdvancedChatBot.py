@@ -1,17 +1,15 @@
-from langchain_openai import ChatOpenAI,OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from langchain_core.runnables import RunnableSequence
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import requests
-from bs4 import BeautifulSoup
+from langchain_community.document_loaders import PyPDFLoader
 import os
-os.environ["OPENAI_API_KEY"] = "OPENAI_API_KEY"
+
+
 class AdvancedChatBot:
-    def __init__(self, html_source=None):
+    def __init__(self, pdf_path=None):
         self.text = None
-        self.chunks=None
+        self.chunks = None
         self.embeddings = None
         self.embedded_documents = None
         self.vectorstore = None
@@ -20,65 +18,65 @@ class AdvancedChatBot:
         self.llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.2)
         self.docs = None
         self.inputs = None
+        self.pdf_path = pdf_path
 
-    def scrape_url(self, url):
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text,"html.parser")
-
-        faq_sections = soup.find_all(['li','h2','h3','p'])
-        self.text = "\n".join([section.get_text(strip=True) for section in faq_sections])
+    def load_pdf(self, pdf_path):
+        """Extract text from a PDF file."""
+        loader = PyPDFLoader(pdf_path)
+        pages = loader.load()
+        self.text = "\n".join([page.page_content for page in pages])
         return self.text
 
     def split_text(self):
-        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50, separators=["\n",".","?","!"])
+        """Split text into chunks for embedding."""
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n", ".", "?", "!"]
+        )
         self.chunks = splitter.split_text(self.text)
         return self.chunks
     
     def embed_text(self):
+        """Embed text chunks using OpenAI embeddings."""
         self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
         self.embedded_documents = self.embeddings.embed_documents(self.chunks)
         return self.embeddings, self.embedded_documents
 
     def build_vector_db(self):
+        """Create a FAISS vector database from embedded documents."""
         docs = [Document(page_content=chunk) for chunk in self.chunks]
-        self.vectorstore = FAISS.from_documents(docs,self.embeddings)
+        self.vectorstore = FAISS.from_documents(docs, self.embeddings)
         return self.vectorstore
     
-
     def query(self, question, k=3):
+        """Query the vector store and generate an LLM answer."""
         if self.vectorstore is None:
             self.build_vector_db()
     
-        # Retrieve most similar docs
+        # Retrieve most relevant text chunks
         docs = self.vectorstore.similarity_search(question, k=k)
         context = "\n".join(doc.page_content for doc in docs)
     
-        # Create prompt
-        prompt = f"""Based on the following context, answer the question:
-    
+        # Construct the prompt
+        prompt = f"""Based on the following context, answer the question concisely:
+
 Context:
-    {context}
-    
+{context}
+
 Question:
-    {question}
-    
+{question}
+
 Answer:"""
     
-        # Use the LLM to generate an answer
+        # Generate answer with LLM
         response = self.llm.invoke(prompt)
         return response.content
 
-    def process_all(self,html_content):
-            self.scrape_url(html_content)
-            self.split_text()
-            self.embed_text()
-            self.build_vector_db()
-            
-            return True
-    
-        
-        
-        
-        
-        
-    
+    def process_all(self, pdf_path):
+        """Full pipeline for a PDF file."""
+        self.load_pdf(pdf_path)
+        self.split_text()
+        self.embed_text()
+        self.build_vector_db()
+        return True
