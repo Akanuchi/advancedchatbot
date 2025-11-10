@@ -5,6 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 import os
 
+os.environ["OPENAI_API_KEY"] ="OPENAI_API_KEY"
 
 class AdvancedChatBot:
     def __init__(self, pdf_path=None):
