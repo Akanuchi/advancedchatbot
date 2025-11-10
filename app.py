@@ -21,23 +21,18 @@ def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/query", response_class=HTMLResponse)
-try:
-    async def query_bot(request: Request, file: UploadFile = File(...), question: str = Form(...)):
-        # Save uploaded file temporarily
+async def query_bot(request: Request, file: UploadFile = File(...), question: str = Form(...)):
+    try:
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Process the uploaded PDF
         bot.process_all(file_path)
         answer = bot.query(question)
 
-        # Optionally remove file after processing
         os.remove(file_path)
+        return templates.TemplateResponse("index.html", {"request": request, "answer": answer})
 
-        return templates.TemplateResponse(
-            "index.html", {"request": request, "answer": answer}
-        )
-except:
-    print(f"Error: {e}")
-    raise HTTPException(status_code=500, detail="Internal Server Error")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
