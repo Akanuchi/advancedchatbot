@@ -29,7 +29,8 @@
       margin-top: 20px;
     }
     input[type="file"],
-    input[type="text"] {
+    input[type="text"],
+    select {
       width: 100%;
       padding: 12px;
       margin-top: 8px;
@@ -71,16 +72,6 @@
       text-align: left;
       color: #2d3748;
     }
-    .typing {
-      font-style: italic;
-      color: #a0aec0;
-      animation: blink 1s infinite;
-    }
-    @keyframes blink {
-      0% { opacity: 0.2; }
-      50% { opacity: 1; }
-      100% { opacity: 0.2; }
-    }
   </style>
 </head>
 <body>
@@ -89,6 +80,13 @@
     <form method="post" action="/query" enctype="multipart/form-data">
       <label for="file">Upload a PDF file:</label>
       <input type="file" id="file" name="file" accept=".pdf" required>
+
+      <label for="retriever">Choose Retrieval Strategy:</label>
+      <select id="retriever" name="retriever" required>
+        <option value="vector">VectorStore</option>
+        <option value="summary">Document Summary</option>
+        <option value="keyword">Keyword Table</option>
+      </select>
 
       <label for="question">Your Question:</label>
       <input type="text" id="question" name="question" placeholder="Ask something about your PDF..." required>
@@ -102,8 +100,6 @@
       {% endif %}
       {% if answer %}
         <div class="message bot"><strong>Bot:</strong> {{ answer }}</div>
-      {% else %}
-        <div class="message bot typing">Bot is thinking...</div>
       {% endif %}
     </div>
   </div>

@@ -1,63 +1,43 @@
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from llama_index.core import VectorStoreIndex, DocumentSummaryIndex, KeywordTableIndex, SimpleDirectoryReader
+from llama_index.core import ServiceContext
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
+from llama_index.core.node_parser import SimpleNodeParser
+from llama_index.core.retrievers import VectorIndexRetriever, SummaryIndexRetriever, KeywordTableSimpleRetriever
+from llama_index.core.schema import Document
 import os
 
 class AdvancedChatBot:
-    def __init__(self, pdf_path=None):
-        self.text = None
-        self.chunks = None
-        self.embeddings = None
-        self.embedded_documents = None
-        self.vectorstore = None
-        self.retriever = None
-        self.prompt = None
-        self.llm = ChatOpenAI(model="gpt-4-turbo", temperature=0.2)
-        self.docs = None
-        self.inputs = None
+    def __init__(self, pdf_path=None, retriever_type="vector"):
         self.pdf_path = pdf_path
+        self.retriever_type = retriever_type
+        self.llm = OpenAI(model="gpt-4-turbo", temperature=0.2)
+        self.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+        self.service_context = ServiceContext.from_defaults(llm=self.llm, embed_model=self.embed_model)
+        self.index = None
+        self.retriever = None
 
-    def load_pdf(self, pdf_path):
-        """Extract text from a PDF file."""
-        loader = PyPDFLoader(pdf_path)
-        pages = loader.load()
-        self.text = "\n".join([page.page_content for page in pages])
-        return self.text
+    def load_pdf(self):
+        loader = SimpleDirectoryReader(input_files=[self.pdf_path])
+        docs = loader.load_data()
+        return docs
 
-    def split_text(self):
-        """Split text into chunks for embedding."""
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=50,
-            separators=["\n", ".", "?", "!"]
-        )
-        self.chunks = splitter.split_text(self.text)
-        return self.chunks
-    
-    def embed_text(self):
-        """Embed text chunks using OpenAI embeddings."""
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-        self.embedded_documents = self.embeddings.embed_documents(self.chunks)
-        return self.embeddings, self.embedded_documents
+    def build_index(self, docs):
+        if self.retriever_type == "vector":
+            self.index = VectorStoreIndex.from_documents(docs, service_context=self.service_context)
+            self.retriever = VectorIndexRetriever(index=self.index)
+        elif self.retriever_type == "summary":
+            self.index = DocumentSummaryIndex.from_documents(docs, service_context=self.service_context)
+            self.retriever = SummaryIndexRetriever(index=self.index)
+        elif self.retriever_type == "keyword":
+            self.index = KeywordTableIndex.from_documents(docs, service_context=self.service_context)
+            self.retriever = KeywordTableSimpleRetriever(index=self.index)
+        else:
+            raise ValueError("Invalid retriever type")
 
-    def build_vector_db(self):
-        """Create a FAISS vector database from embedded documents."""
-        docs = [Document(page_content=chunk) for chunk in self.chunks]
-        self.vectorstore = FAISS.from_documents(docs, self.embeddings)
-        return self.vectorstore
-    
-    def query(self, question, k=3):
-        """Query the vector store and generate an LLM answer."""
-        if self.vectorstore is None:
-            self.build_vector_db()
-    
-        # Retrieve most relevant text chunks
-        docs = self.vectorstore.similarity_search(question, k=k)
-        context = "\n".join(doc.page_content for doc in docs)
-    
-        # Construct the prompt
+    def query(self, question):
+        nodes = self.retriever.retrieve(question)
+        context = "\n".join([n.get_content() for n in nodes])
         prompt = f"""Based on the following context, answer the question concisely:
 
 Context:
@@ -67,15 +47,8 @@ Question:
 {question}
 
 Answer:"""
-    
-        # Generate answer with LLM
-        response = self.llm.invoke(prompt)
-        return response.content
+        return self.llm.complete(prompt).text.strip()
 
-    def process_all(self, pdf_path):
-        """Full pipeline for a PDF file."""
-        self.load_pdf(pdf_path)
-        self.split_text()
-        self.embed_text()
-        self.build_vector_db()
-        return True
+    def process_all(self):
+        docs = self.load_pdf()
+        self.build_index(docs)
