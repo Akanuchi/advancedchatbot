@@ -13,3 +13,4 @@ faiss-cpu
 jinja2
 python-multipart
 pypdf
+llama-index
