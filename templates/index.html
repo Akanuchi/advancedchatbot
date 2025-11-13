@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PDF Chat Assistant</title>
+  <title>PDF/URL Chat Assistant</title>
   <link rel="stylesheet" href="/static/style.css">
   <style>
     body {
@@ -49,10 +49,6 @@
       font-weight: 600;
       cursor: pointer;
     }
-    button:hover {
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-      transform: translateY(-2px);
-    }
     .chat-history {
       margin-top: 32px;
       background: #f7fafc;
@@ -76,10 +72,13 @@
 </head>
 <body>
   <div class="container">
-    <h1>📄 PDF Chat Assistant</h1>
+    <h1>📄 PDF/URL Chat Assistant</h1>
     <form method="post" action="/query" enctype="multipart/form-data">
-      <label for="file">Upload a PDF file:</label>
-      <input type="file" id="file" name="file" accept=".pdf" required>
+      <label for="file">Upload a PDF file (optional):</label>
+      <input type="file" id="file" name="file" accept=".pdf">
+
+      <label for="url">Or enter a URL to scrape:</label>
+      <input type="text" id="url" name="url" placeholder="https://example.com/article">
 
       <label for="retriever">Choose Retrieval Strategy:</label>
       <select id="retriever" name="retriever" required>
@@ -89,7 +88,7 @@
       </select>
 
       <label for="question">Your Question:</label>
-      <input type="text" id="question" name="question" placeholder="Ask something about your PDF..." required>
+      <input type="text" id="question" name="question" placeholder="Ask something..." required>
 
       <button type="submit">Ask</button>
     </form>
