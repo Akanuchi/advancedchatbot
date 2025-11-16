@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: advancedchatbot
+  namespace: advancedchatbot   # optional: keep workloads organized
 spec:
   replicas: 1
   selector:
@@ -15,6 +16,7 @@ spec:
       containers:
       - name: advancedchatbot
         image: akanuchiacr.azurecr.io/advancedchatbot:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         env:
@@ -23,3 +25,6 @@ spec:
             secretKeyRef:
               name: openai-secret
               key: api-key
+      # only needed if your ACR is private and not attached to AKS
+      imagePullSecrets:
+        - name: acr-pull-secret
