@@ -30,6 +30,7 @@
     }
     input[type="file"],
     input[type="text"],
+    input[type="password"],
     select {
       width: 100%;
       padding: 12px;
@@ -81,7 +82,7 @@
       
       <!-- Data Source Selector -->
       <label for="datasource">Choose Data Source:</label>
-      <select id="datasource" name="datasource" required>
+      <select id="datasource" name="datasource" required onchange="toggleSnowflakeFields()">
         <option value="pdf">PDF File</option>
         <option value="url">Web URL</option>
         <option value="snowflake">Snowflake Warehouse</option>
@@ -94,6 +95,27 @@
       <!-- URL Input -->
       <label for="url">Or enter a URL to scrape:</label>
       <input type="text" id="url" name="url" placeholder="https://example.com/article">
+
+      <!-- Snowflake Credentials -->
+      <div id="snowflakeFields" style="display:none; margin-top:20px;">
+        <label for="sf_user">Snowflake User:</label>
+        <input type="text" id="sf_user" name="sf_user">
+
+        <label for="sf_password">Snowflake Password:</label>
+        <input type="password" id="sf_password" name="sf_password">
+
+        <label for="sf_account">Snowflake Account:</label>
+        <input type="text" id="sf_account" name="sf_account" placeholder="xy12345.region.azure">
+
+        <label for="sf_warehouse">Snowflake Warehouse:</label>
+        <input type="text" id="sf_warehouse" name="sf_warehouse">
+
+        <label for="sf_database">Snowflake Database:</label>
+        <input type="text" id="sf_database" name="sf_database">
+
+        <label for="sf_schema">Snowflake Schema:</label>
+        <input type="text" id="sf_schema" name="sf_schema">
+      </div>
 
       <!-- Retriever Strategy -->
       <label for="retriever">Choose Retrieval Strategy:</label>
@@ -120,5 +142,13 @@
       {% endif %}
     </div>
   </div>
+
+  <script>
+    function toggleSnowflakeFields() {
+      const datasource = document.getElementById("datasource").value;
+      document.getElementById("snowflakeFields").style.display =
+        datasource === "snowflake" ? "block" : "none";
+    }
+  </script>
 </body>
 </html>
