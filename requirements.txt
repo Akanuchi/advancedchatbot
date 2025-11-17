@@ -15,3 +15,4 @@ python-multipart
 pypdf
 llama-index
 snowflake-connector-python
+itsdangerous
