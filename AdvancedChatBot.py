@@ -1,22 +1,7 @@
 import os
-import requests
 import snowflake.connector
+import requests
 from bs4 import BeautifulSoup
-from llama_index.core import (
-    VectorStoreIndex,
-    DocumentSummaryIndex,
-    KeywordTableIndex,
-    Settings,
-    Document
-)
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.llms.openai import OpenAI
-from llama_index.core.retrievers import (
-    VectorIndexRetriever,
-    SummaryIndexRetriever,
-    KeywordTableSimpleRetriever
-)
-from llama_index.readers.file import PDFReader
 
 class AdvancedChatBot:
     def __init__(self, pdf_path=None, url=None, retriever_type="vector", datasource="pdf"):
@@ -25,84 +10,69 @@ class AdvancedChatBot:
         self.retriever_type = retriever_type
         self.datasource = datasource
 
-        # Configure LLM and embedding
-        self.llm = OpenAI(model="gpt-4-turbo", temperature=0.2)
-        self.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
-
-        Settings.llm = self.llm
-        Settings.embed_model = self.embed_model
-
-        self.index = None
-        self.retriever = None
-
-    def load_documents(self):
-        docs = []
-        if self.pdf_path and self.datasource == "pdf":
-            reader = PDFReader()
-            docs.extend(reader.load_data(file=self.pdf_path))
-        if self.url and self.datasource == "url":
-            html = requests.get(self.url, timeout=10).text
-            soup = BeautifulSoup(html, "html.parser")
-            text = soup.get_text(separator="\n", strip=True)
-            print(f"Scraped text from URL: {text[:200]}...")
-            docs.append(Document(text=text))
-        return docs
-
-    def build_index(self, docs):
-        if self.retriever_type == "vector":
-            self.index = VectorStoreIndex.from_documents(docs)
-            self.retriever = VectorIndexRetriever(index=self.index)
-        elif self.retriever_type == "summary":
-            self.index = DocumentSummaryIndex.from_documents(docs)
-            self.retriever = SummaryIndexRetriever(index=self.index)
-        elif self.retriever_type == "keyword":
-            self.index = KeywordTableIndex.from_documents(docs)
-            self.retriever = KeywordTableSimpleRetriever(index=self.index)
-
-    def query(self, question):
-        if self.datasource == "snowflake":
-            return self.query_snowflake(question)
-        else:
-            nodes = self.retriever.retrieve(question)
-            context = "\n".join([node.get_content() for node in nodes])
-            prompt = f"""Based on the following context, answer the question concisely:
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer:"""
-            response = self.llm.complete(prompt)
-            return response.text.strip()
-
-    def query_snowflake(self, prompt):
-        """Convert natural language prompt to SQL and query Snowflake."""
-        sql_prompt = f"Convert the following request into a valid Snowflake SQL query:\n\n{prompt}\n\nSQL:"
-        sql_query = self.llm.complete(sql_prompt).text.strip()
-        print(f"Generated SQL: {sql_query}")
-
-        # Connect to Snowflake (credentials should be set via env vars or secrets)
-        conn = snowflake.connector.connect(
-            user=os.getenv("SNOWFLAKE_USER"),
-            password=os.getenv("SNOWFLAKE_PASSWORD"),
-            account=os.getenv("SNOWFLAKE_ACCOUNT"),
-            warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
-            database=os.getenv("SNOWFLAKE_DATABASE"),
-            schema=os.getenv("SNOWFLAKE_SCHEMA")
-        )
-        cursor = conn.cursor()
-        cursor.execute(sql_query)
-        results = cursor.fetchall()
-        cursor.close()
-        conn.close()
-
-        return f"SQL: {sql_query}\nResults: {results}"
+        # Load Snowflake credentials from environment variables (set in Kubernetes/Deployment)
+        self.sf_user = os.getenv("SF_USER")
+        self.sf_password = os.getenv("SF_PASSWORD")
+        self.sf_account = os.getenv("SF_ACCOUNT")
+        self.sf_warehouse = os.getenv("SF_WAREHOUSE")
+        self.sf_database = os.getenv("SF_DATABASE")
+        self.sf_schema = os.getenv("SF_SCHEMA")
 
     def process_all(self):
-        if self.datasource in ["pdf", "url"]:
-            docs = self.load_documents()
-            if not docs:
-                raise ValueError("No valid documents found from PDF or URL.")
-            self.build_index(docs)
+        # Stub for pre-processing; wire PDF/URL ingestion as needed
+        if self.datasource == "url" and self.url:
+            try:
+                html = requests.get(self.url, timeout=20).text
+                soup = BeautifulSoup(html, "html.parser")
+                self.scraped_text = " ".join([p.get_text(strip=True) for p in soup.find_all("p")])[:5000]
+            except Exception as e:
+                self.scraped_text = f"Failed to scrape URL: {e}"
+        elif self.datasource == "pdf" and self.pdf_path:
+            # Implement your PDF parsing/extraction here
+            self.scraped_text = f"PDF uploaded: {os.path.basename(self.pdf_path)}"
+        else:
+            self.scraped_text = None
+
+    def _connect_snowflake(self):
+        # Basic validation
+        required = [self.sf_user, self.sf_password, self.sf_account, self.sf_warehouse, self.sf_database, self.sf_schema]
+        if any(v is None or v == "" for v in required):
+            raise RuntimeError("Missing Snowflake environment variables (SF_USER, SF_PASSWORD, SF_ACCOUNT, SF_WAREHOUSE, SF_DATABASE, SF_SCHEMA).")
+        conn = snowflake.connector.connect(
+            user=self.sf_user,
+            password=self.sf_password,
+            account=self.sf_account,
+            warehouse=self.sf_warehouse,
+            database=self.sf_database,
+            schema=self.sf_schema,
+        )
+        return conn
+
+    def query(self, question: str) -> str:
+        # Route to datasource
+        if self.datasource == "snowflake":
+            try:
+                conn = self._connect_snowflake()
+                cur = conn.cursor()
+                # Replace this with your NL-to-SQL or fixed queries
+                cur.execute("SELECT CURRENT_ACCOUNT(), CURRENT_REGION(), CURRENT_VERSION();")
+                rows = cur.fetchall()
+                cur.close()
+                conn.close()
+                return f"Snowflake connection OK. Info: {rows}"
+            except Exception as e:
+                return f"Snowflake query failed: {e}"
+
+        # URL/text mode
+        if self.datasource == "url":
+            if self.scraped_text:
+                return f"URL scraped content preview: {self.scraped_text[:500]}"
+            return "No content scraped from URL."
+
+        # PDF mode
+        if self.datasource == "pdf":
+            if self.scraped_text:
+                return f"PDF processed: {self.scraped_text}"
+            return "No PDF provided."
+
+        return "Unsupported datasource."

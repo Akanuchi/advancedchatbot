@@ -4,11 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import shutil, os
+
 from AdvancedChatBot import AdvancedChatBot
 
-# ✅ Define the app before using it
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key="super-secret-session-key")
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "super-secret-session-key"))
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -27,13 +27,7 @@ async def query_bot(
     url: str = Form(""),
     question: str = Form(...),
     retriever: str = Form("vector"),
-    datasource: str = Form("pdf"),
-    sf_user: str = Form(""),
-    sf_password: str = Form(""),
-    sf_account: str = Form(""),
-    sf_warehouse: str = Form(""),
-    sf_database: str = Form(""),
-    sf_schema: str = Form("")
+    datasource: str = Form("pdf")
 ):
     try:
         pdf_path = None
@@ -42,30 +36,11 @@ async def query_bot(
             with open(pdf_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-        # Store Snowflake creds in session if provided
-        if datasource == "snowflake" and sf_user and sf_password:
-            request.session["snowflake"] = {
-                "sf_user": sf_user,
-                "sf_password": sf_password,
-                "sf_account": sf_account,
-                "sf_warehouse": sf_warehouse,
-                "sf_database": sf_database,
-                "sf_schema": sf_schema
-            }
-
-        creds = request.session.get("snowflake", {})
-
         bot = AdvancedChatBot(
             pdf_path=pdf_path,
             url=url.strip(),
             retriever_type=retriever,
             datasource=datasource,
-            sf_user=creds.get("sf_user"),
-            sf_password=creds.get("sf_password"),
-            sf_account=creds.get("sf_account"),
-            sf_warehouse=creds.get("sf_warehouse"),
-            sf_database=creds.get("sf_database"),
-            sf_schema=creds.get("sf_schema")
         )
         bot.process_all()
         answer = bot.query(question)

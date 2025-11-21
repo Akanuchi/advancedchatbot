@@ -1,8 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: advancedchatbot
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: snowflake-secret
+  namespace: advancedchatbot
+type: Opaque
+stringData:
+  SF_USER: "YOUR_USERNAME"
+  SF_PASSWORD: "YOUR_PASSWORD"
+  SF_ACCOUNT: "xy12345.region.azure"
+  SF_WAREHOUSE: "COMPUTE_WH"
+  SF_DATABASE: "SALES_DB"
+  SF_SCHEMA: "PUBLIC"
+  SESSION_SECRET: "replace-with-strong-random-secret"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: advancedchatbot
-  namespace: advancedchatbot   # optional: keep workloads organized
+  namespace: advancedchatbot
 spec:
   replicas: 1
   selector:
@@ -16,15 +36,69 @@ spec:
       containers:
       - name: advancedchatbot
         image: akanuchiacr.azurecr.io/advancedchatbot:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
         env:
-        - name: OPENAI_API_KEY
+        - name: SF_USER
           valueFrom:
             secretKeyRef:
-              name: openai-secret
-              key: api-key
-      # only needed if your ACR is private and not attached to AKS
-      imagePullSecrets:
-        - name: acr-pull-secret
+              name: snowflake-secret
+              key: SF_USER
+        - name: SF_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SF_PASSWORD
+        - name: SF_ACCOUNT
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SF_ACCOUNT
+        - name: SF_WAREHOUSE
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SF_WAREHOUSE
+        - name: SF_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SF_DATABASE
+        - name: SF_SCHEMA
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SF_SCHEMA
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: snowflake-secret
+              key: SESSION_SECRET
+        # Optional: health probes
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: advancedchatbot-service
+  namespace: advancedchatbot
+spec:
+  selector:
+    app: advancedchatbot
+  type: LoadBalancer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
