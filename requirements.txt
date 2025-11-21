@@ -1,18 +1,11 @@
-fastapi
-uvicorn[standard]
-langchain
-langchain-openai
-openai
-langchain-community
-langchain-core
-langchain-text-splitters
-requests
-beautifulsoup4
-pydantic
-faiss-cpu
-jinja2
-python-multipart
-pypdf
-llama-index
-snowflake-connector-python
-itsdangerous
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+jinja2==3.1.4
+python-multipart==0.0.9
+requests==2.32.3
+beautifulsoup4==4.12.3
+fitz==0.0.1.dev2           # PyMuPDF wrapper (required for PDF parsing)
+PyMuPDF==1.23.22           # Actual PDF engine
+snowflake-connector-python==3.12.0
+openai==1.52.0             # Optional: for LLM summarization
+itsdangerous==2.2.0        # Required for session middleware
