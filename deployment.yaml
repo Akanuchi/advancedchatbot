@@ -3,21 +3,6 @@ kind: Namespace
 metadata:
   name: advancedchatbot
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: snowflake-secret
-  namespace: advancedchatbot
-type: Opaque
-stringData:
-  SF_USER: "YOUR_USERNAME"
-  SF_PASSWORD: "YOUR_PASSWORD"
-  SF_ACCOUNT: "xy12345.region.azure"
-  SF_WAREHOUSE: "COMPUTE_WH"
-  SF_DATABASE: "SALES_DB"
-  SF_SCHEMA: "PUBLIC"
-  SESSION_SECRET: "replace-with-strong-random-secret"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -75,7 +60,6 @@ spec:
             secretKeyRef:
               name: snowflake-secret
               key: SESSION_SECRET
-        # Optional: health probes
         readinessProbe:
           httpGet:
             path: /
