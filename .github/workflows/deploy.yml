@@ -35,6 +35,55 @@ jobs:
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest
 
     # Create or update Kubernetes secret from GitHub Secrets
+    - name: Create Kubernetes secret for app
+      run: |
+        kubectl create secret generic app-secret \
+          --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
+          --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+          -n advancedchatbot --dry-run=client -o yaml | kubectl apply -f -
+
+    # Deploy manifests
+    - name: Deploy to AKS
+      run: |
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
+name: CI/CD Pipeline for FastAPI on AKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # Authenticate to Azure
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # Set AKS context
+    - name: Set AKS context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ secrets.RESOURCE_GROUP }}
+        cluster-name: ${{ secrets.CLUSTER_NAME }}
+        subscription: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    # Build and push Docker image to ACR
+    - name: Build and push Docker image
+      run: |
+        docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest .
+        echo ${{ secrets.REGISTRY_PASSWORD }} | docker login ${{ secrets.REGISTRY_LOGIN_SERVER }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest
+
+    # Create or update Kubernetes secret from GitHub Secrets
     - name: Create Kubernetes secret for Snowflake
       run: |
         kubectl create secret generic snowflake-secret \
