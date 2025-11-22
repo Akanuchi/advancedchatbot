@@ -4,91 +4,21 @@
   <meta charset="UTF-8">
   <title>Multi-Source Chat Assistant</title>
   <link rel="stylesheet" href="/static/style.css">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 700px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-    h1 {
-      text-align: center;
-      color: #667eea;
-    }
-    label {
-      font-weight: 600;
-      display: block;
-      margin-top: 20px;
-    }
-    input[type="file"],
-    input[type="text"],
-    select {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-    }
-    button {
-      margin-top: 24px;
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover {
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-      transform: translateY(-2px);
-    }
-    .chat-history {
-      margin-top: 32px;
-      background: #f7fafc;
-      padding: 20px;
-      border-radius: 12px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .message {
-      margin-bottom: 16px;
-    }
-    .message.user {
-      text-align: right;
-      color: #2b6cb0;
-    }
-    .message.bot {
-      text-align: left;
-      color: #2d3748;
-    }
-  </style>
 </head>
 <body>
   <div class="container">
-    <h1>📊 Multi-Source Chat Assistant</h1>
+    <h1>📄 Multi-Source Chat Assistant</h1>
     <form method="post" action="/query" enctype="multipart/form-data">
       <label for="datasource">Choose Data Source:</label>
       <select id="datasource" name="datasource" required>
         <option value="pdf">PDF File</option>
         <option value="url">Web URL</option>
-        <option value="snowflake">Snowflake Warehouse</option>
       </select>
 
-      <label for="file">Upload a PDF file (optional):</label>
+      <label for="file">Upload a PDF file:</label>
       <input type="file" id="file" name="file" accept=".pdf">
 
-      <label for="url">Or enter a URL to scrape:</label>
+      <label for="url">Or enter a URL:</label>
       <input type="text" id="url" name="url" placeholder="https://example.com/article">
 
       <label for="retriever">Choose Retrieval Strategy:</label>

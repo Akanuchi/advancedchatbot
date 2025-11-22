@@ -3,13 +3,10 @@ kind: Service
 metadata:
   name: advancedchatbot-service
   namespace: advancedchatbot
-  annotations:
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: akanuchibrightakb-rg
 spec:
   selector:
     app: advancedchatbot
   type: LoadBalancer
-  loadBalancerIP: 172.200.99.247
   ports:
   - protocol: TCP
     port: 80

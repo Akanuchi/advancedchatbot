@@ -4,7 +4,6 @@ jinja2==3.1.4
 python-multipart==0.0.9
 requests==2.32.3
 beautifulsoup4==4.12.3
-PyMuPDF==1.23.22           # Actual PDF engine
-snowflake-connector-python==3.12.0
-openai==1.52.0             # Optional: for LLM summarization
-itsdangerous==2.2.0        # Required for session middleware
+PyMuPDF==1.23.22
+openai==1.52.0
+itsdangerous==2.2.0
