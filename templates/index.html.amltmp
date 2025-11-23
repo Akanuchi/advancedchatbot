@@ -1,24 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Advanced ChatBot</title>
-    <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <title>Multi-Source Chat Assistant</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Ask the ChatBot</h1>
-    <form method="post" action="/query">
-        <label for="url">Web Page URL:</label><br>
-        <input type="text" id="url" name="url" required><br><br>
+  <div class="container">
+    <h1>📄 Multi-Source Chat Assistant</h1>
+    <form method="post" action="/query" enctype="multipart/form-data">
+      <label for="datasource">Choose Data Source:</label>
+      <select id="datasource" name="datasource" required>
+        <option value="pdf">PDF File</option>
+        <option value="url">Web URL</option>
+      </select>
 
-        <label for="question">Your Question:</label><br>
-        <input type="text" id="question" name="question" required><br><br>
+      <label for="file">Upload a PDF file:</label>
+      <input type="file" id="file" name="file" accept=".pdf">
 
-        <button type="submit">Ask</button>
+      <label for="url">Or enter a URL:</label>
+      <input type="text" id="url" name="url" placeholder="https://example.com/article">
+
+      <label for="retriever">Choose Retrieval Strategy:</label>
+      <select id="retriever" name="retriever" required>
+        <option value="vector">VectorStore</option>
+        <option value="summary">Document Summary</option>
+        <option value="keyword">Keyword Table</option>
+      </select>
+
+      <label for="question">Your Prompt:</label>
+      <input type="text" id="question" name="question" placeholder="Ask something..." required>
+
+      <button type="submit">Ask</button>
     </form>
 
-    {% if answer %}
-        <h2>Answer:</h2>
-        <p>{{ answer }}</p>
-    {% endif %}
+    <div class="chat-history">
+      {% if question %}
+        <div class="message user"><strong>You:</strong> {{ question }}</div>
+      {% endif %}
+      {% if answer %}
+        <div class="message bot"><strong>Bot:</strong> {{ answer }}</div>
+      {% endif %}
+    </div>
+  </div>
 </body>
 </html>
