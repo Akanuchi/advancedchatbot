@@ -5,13 +5,10 @@ python-multipart==0.0.9
 requests==2.32.3
 beautifulsoup4==4.12.3
 
-# LlamaIndex modules (compatible with OpenAI >=1.1.0)
-llama-index-core==0.11.0
-llama-index-embeddings-openai==0.2.0
-llama-index-llms-openai==0.2.0
-llama-index-readers-file==0.2.0
+# Unified LlamaIndex (includes core, embeddings, llms, readers)
+llama-index==0.12.0
 
-# OpenAI SDK (new API, matches LlamaIndex requirements)
+# Latest OpenAI SDK (compatible with new LlamaIndex)
 openai==1.52.0
 
 itsdangerous==2.2.0
