@@ -37,7 +37,7 @@ jobs:
           --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
           --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
           --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          -n advancedchatbot --dry-run=client -o yaml | kubectl apply -f -
+          --dry-run=client -o yaml | kubectl apply -n advancedchatbot -f -
 
     - name: Deploy to AKS
       run: |
