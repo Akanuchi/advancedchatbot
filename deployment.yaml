@@ -1,49 +1,33 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: advancedchatbot
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: advancedchatbot
-  namespace: advancedchatbot
+  name: pdf-chat-assistant
+  labels:
+    app: pdf-chat-assistant
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: advancedchatbot
+      app: pdf-chat-assistant
   template:
     metadata:
       labels:
-        app: advancedchatbot
+        app: pdf-chat-assistant
     spec:
       containers:
-      - name: advancedchatbot
-        image: akanuchiacr.azurecr.io/advancedchatbot:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8000
-        env:
-        - name: SESSION_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secret
-              key: SESSION_SECRET
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secret
-              key: OPENAI_API_KEY
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 8000
-          initialDelaySeconds: 20
-          periodSeconds: 20
+        - name: pdf-chat-assistant
+          image: your-dockerhub-username/pdf-chat-assistant:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai-secret
+                  key: OPENAI_API_KEY
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads
+          emptyDir: {}

@@ -1,15 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: advancedchatbot-service
-  annotations:
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: akanuchibrightakb-rg
+  name: pdf-chat-assistant-service
 spec:
   selector:
-    app: advancedchatbot
-  type: LoadBalancer
-  loadBalancerIP: 172.200.99.247
+    app: pdf-chat-assistant
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer

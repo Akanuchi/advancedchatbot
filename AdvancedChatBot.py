@@ -1,12 +1,10 @@
 import os
-import requests
-from bs4 import BeautifulSoup
 from llama_index.core import (
     VectorStoreIndex,
     DocumentSummaryIndex,
     KeywordTableIndex,
-    Settings,
-    Document
+    SimpleDirectoryReader,
+    Settings
 )
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
@@ -15,15 +13,11 @@ from llama_index.core.retrievers import (
     SummaryIndexRetriever,
     KeywordTableSimpleRetriever
 )
-from llama_index.readers.file import PDFReader
 
 class AdvancedChatBot:
-    def __init__(self, pdf_path=None, url=None, retriever_type="vector"):
+    def __init__(self, pdf_path=None, retriever_type="vector"):
         self.pdf_path = pdf_path
-        self.url = url
         self.retriever_type = retriever_type
-
-        # Configure LLM and embedding
         self.llm = OpenAI(model="gpt-4-turbo", temperature=0.2)
         self.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
 
@@ -34,24 +28,10 @@ class AdvancedChatBot:
         self.index = None
         self.retriever = None
 
-    def load_documents(self):
-        """Load documents from PDF or URL."""
-        docs = []
-
-        if self.pdf_path:
-            reader = PDFReader()
-            docs.extend(reader.load_data(file=self.pdf_path))
-
-        if self.url:
-            try:
-                html = requests.get(self.url, timeout=10).text
-                soup = BeautifulSoup(html, "html.parser")
-                text = soup.get_text(separator="\n", strip=True)
-                print(f"Scraped text from URL: {text[:200]}...")  # ✅ Debug log
-                docs.append(Document(text=text))
-            except Exception as e:
-                print(f"Error scraping URL: {e}")
-
+    def load_pdf(self):
+        """Load PDF and convert to LlamaIndex documents."""
+        loader = SimpleDirectoryReader(input_files=[self.pdf_path])
+        docs = loader.load_data()
         return docs
 
     def build_index(self, docs):
@@ -88,7 +68,5 @@ Answer:"""
 
     def process_all(self):
         """Full pipeline: load, index, and prepare retriever."""
-        docs = self.load_documents()
-        if not docs:
-            raise ValueError("No valid documents found from PDF or URL.")
+        docs = self.load_pdf()
         self.build_index(docs)

@@ -1,14 +1,7 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.0
-jinja2==3.1.4
-python-multipart==0.0.9
-requests==2.32.3
-beautifulsoup4==4.12.3
-
-# Unified LlamaIndex (includes core, embeddings, llms, readers)
-llama-index==0.12.0
-
-# Latest OpenAI SDK (compatible with new LlamaIndex)
-openai==1.52.0
-
-itsdangerous==2.2.0
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+llama-index-core
+llama-index-embeddings-openai
+llama-index-llms-openai

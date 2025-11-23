@@ -7,6 +7,7 @@ import os
 from AdvancedChatBot import AdvancedChatBot
 
 app = FastAPI()
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -20,24 +21,20 @@ def home(request: Request):
 @app.post("/query", response_class=HTMLResponse)
 async def query_bot(
     request: Request,
-    file: UploadFile = File(None),
-    url: str = Form(""),
+    file: UploadFile = File(...),
     question: str = Form(...),
     retriever: str = Form(...)
 ):
     try:
-        pdf_path = None
-        if file and file.filename:
-            pdf_path = os.path.join(UPLOAD_DIR, file.filename)
-            with open(pdf_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        bot = AdvancedChatBot(pdf_path=pdf_path, url=url.strip(), retriever_type=retriever)
+        bot = AdvancedChatBot(pdf_path=file_path, retriever_type=retriever)
         bot.process_all()
         answer = bot.query(question)
 
-        if pdf_path and os.path.exists(pdf_path):
-            os.remove(pdf_path)
+        os.remove(file_path)
 
         return templates.TemplateResponse("index.html", {
             "request": request,
