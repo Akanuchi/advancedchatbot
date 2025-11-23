@@ -31,13 +31,20 @@ jobs:
         echo ${{ secrets.REGISTRY_PASSWORD }} | docker login ${{ secrets.REGISTRY_LOGIN_SERVER }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest
 
-    - name: Create Kubernetes secret for app
+    - name: Apply Kubernetes secret for app
       run: |
-        kubectl create secret generic app-secret \
-          --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
-          --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-          --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          --dry-run=client -o yaml | kubectl apply -n advancedchatbot -f -
+        kubectl apply -n advancedchatbot -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: app-secret
+          namespace: advancedchatbot
+        type: Opaque
+        stringData:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        EOF
 
     - name: Deploy to AKS
       run: |
