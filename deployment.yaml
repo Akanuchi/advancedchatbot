@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pdf-chat-assistant
+  name: pdf-db-assistant
   labels:
-    app: pdf-chat-assistant
+    app: pdf-db-assistant
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: pdf-chat-assistant
+      app: pdf-db-assistant
   template:
     metadata:
       labels:
-        app: pdf-chat-assistant
+        app: pdf-db-assistant
     spec:
       containers:
-        - name: pdf-chat-assistant
-          image: your-dockerhub-username/pdf-chat-assistant:latest
+        - name: pdf-db-assistant
+          image: yourregistry.azurecr.io/pdf-db-assistant:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -25,9 +26,28 @@ spec:
                 secretKeyRef:
                   name: openai-secret
                   key: OPENAI_API_KEY
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: DATABASE_URL
           volumeMounts:
             - name: uploads
               mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
       volumes:
         - name: uploads
           emptyDir: {}
+      imagePullSecrets:
+        - name: acr-pull-secret
