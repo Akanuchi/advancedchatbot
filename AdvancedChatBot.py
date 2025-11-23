@@ -3,8 +3,8 @@ from llama_index.core import (
     VectorStoreIndex,
     DocumentSummaryIndex,
     KeywordTableIndex,
-    SimpleDirectoryReader,
-    Settings
+    Settings,
+    Document
 )
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
@@ -13,6 +13,8 @@ from llama_index.core.retrievers import (
     SummaryIndexRetriever,
     KeywordTableSimpleRetriever
 )
+import pdfplumber
+
 
 class AdvancedChatBot:
     def __init__(self, pdf_path=None, retriever_type="vector"):
@@ -29,10 +31,18 @@ class AdvancedChatBot:
         self.retriever = None
 
     def load_pdf(self):
-        """Load PDF and convert to LlamaIndex documents."""
-        loader = SimpleDirectoryReader(input_files=[self.pdf_path])
-        docs = loader.load_data()
-        return docs
+        """Extract text from PDF using pdfplumber and wrap into LlamaIndex Document."""
+        text = ""
+        with pdfplumber.open(self.pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+
+        if not text.strip():
+            raise ValueError("No readable text extracted from PDF.")
+
+        return [Document(text)]
 
     def build_index(self, docs):
         """Build index and retriever based on selected strategy."""
