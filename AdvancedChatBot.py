@@ -1,73 +1,94 @@
 import os
-import logging
 import requests
 from bs4 import BeautifulSoup
-import fitz  # PyMuPDF
-import openai
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("AdvancedChatBot")
+from llama_index.core import (
+    VectorStoreIndex,
+    DocumentSummaryIndex,
+    KeywordTableIndex,
+    Settings,
+    Document
+)
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.llms.openai import OpenAI
+from llama_index.core.retrievers import (
+    VectorIndexRetriever,
+    SummaryIndexRetriever,
+    KeywordTableSimpleRetriever
+)
+from llama_index.readers.file import PDFReader
 
 class AdvancedChatBot:
-    def __init__(self, pdf_path=None, url=None, retriever_type="vector", datasource="pdf"):
+    def __init__(self, pdf_path=None, url=None, retriever_type="vector"):
         self.pdf_path = pdf_path
         self.url = url
         self.retriever_type = retriever_type
-        self.datasource = datasource
-        self.source_text = None
 
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        if self.openai_api_key:
-            openai.api_key = self.openai_api_key
+        # Configure LLM and embedding
+        self.llm = OpenAI(model="gpt-4-turbo", temperature=0.2)
+        self.embed_model = OpenAIEmbedding(model="text-embedding-3-small")
+
+        # Apply global settings
+        Settings.llm = self.llm
+        Settings.embed_model = self.embed_model
+
+        self.index = None
+        self.retriever = None
+
+    def load_documents(self):
+        """Load documents from PDF or URL."""
+        docs = []
+
+        if self.pdf_path:
+            reader = PDFReader()
+            docs.extend(reader.load_data(file=self.pdf_path))
+
+        if self.url:
+            try:
+                html = requests.get(self.url, timeout=10).text
+                soup = BeautifulSoup(html, "html.parser")
+                text = soup.get_text(separator="\n", strip=True)
+                print(f"Scraped text from URL: {text[:200]}...")  # ✅ Debug log
+                docs.append(Document(text=text))
+            except Exception as e:
+                print(f"Error scraping URL: {e}")
+
+        return docs
+
+    def build_index(self, docs):
+        """Build index and retriever based on selected strategy."""
+        if self.retriever_type == "vector":
+            self.index = VectorStoreIndex.from_documents(docs)
+            self.retriever = VectorIndexRetriever(index=self.index)
+        elif self.retriever_type == "summary":
+            self.index = DocumentSummaryIndex.from_documents(docs)
+            self.retriever = SummaryIndexRetriever(index=self.index)
+        elif self.retriever_type == "keyword":
+            self.index = KeywordTableIndex.from_documents(docs)
+            self.retriever = KeywordTableSimpleRetriever(index=self.index)
+        else:
+            raise ValueError(f"Invalid retriever type: {self.retriever_type}")
+
+    def query(self, question):
+        """Query the selected retriever and generate a response."""
+        nodes = self.retriever.retrieve(question)
+        context = "\n".join([node.get_content() for node in nodes])
+
+        prompt = f"""Based on the following context, answer the question concisely:
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:"""
+
+        response = self.llm.complete(prompt)
+        return response.text.strip()
 
     def process_all(self):
-        if self.datasource == "pdf":
-            self.source_text = self._extract_pdf_text(self.pdf_path)
-        elif self.datasource == "url":
-            self.source_text = self._scrape_url_text(self.url)
-
-    def _extract_pdf_text(self, path):
-        if not path or not os.path.exists(path):
-            return None
-        try:
-            doc = fitz.open(path)
-            text = "\n".join([page.get_text("text") for page in doc])
-            return text[:100000]
-        except Exception as e:
-            logger.error(f"PDF extraction failed: {e}")
-            return None
-
-    def _scrape_url_text(self, url):
-        if not url:
-            return None
-        try:
-            resp = requests.get(url, timeout=20)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            texts = [tag.get_text(" ", strip=True) for tag in soup.find_all(["h1","h2","h3","p","li"])]
-            return "\n".join(texts)[:100000]
-        except Exception as e:
-            logger.error(f"URL scraping failed: {e}")
-            return None
-
-    def query(self, question: str) -> str:
-        if not self.source_text:
-            return "No content available to answer your question."
-        if "summarise" in question.lower() or "summarize" in question.lower():
-            return self._summarize(self.source_text)
-        return self._summarize(f"Answer the question based on:\n{self.source_text}\n\nQuestion: {question}")
-
-    def _summarize(self, text: str) -> str:
-        if not self.openai_api_key:
-            return text[:1000]  # fallback preview
-        try:
-            resp = openai.ChatCompletion.create(
-                model="gpt-4o-mini",
-                messages=[{"role":"user","content":text}],
-                max_tokens=600,
-                temperature=0.2
-            )
-            return resp.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Summarization failed: {e}")
-            return text[:1000]
+        """Full pipeline: load, index, and prepare retriever."""
+        docs = self.load_documents()
+        if not docs:
+            raise ValueError("No valid documents found from PDF or URL.")
+        self.build_index(docs)

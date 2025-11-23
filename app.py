@@ -2,12 +2,11 @@ from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import shutil, os
-
+import shutil
+import os
 from AdvancedChatBot import AdvancedChatBot
 
 app = FastAPI()
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -24,22 +23,16 @@ async def query_bot(
     file: UploadFile = File(None),
     url: str = Form(""),
     question: str = Form(...),
-    retriever: str = Form("vector"),
-    datasource: str = Form("pdf")
+    retriever: str = Form(...)
 ):
     try:
         pdf_path = None
-        if file and file.filename and datasource == "pdf":
+        if file and file.filename:
             pdf_path = os.path.join(UPLOAD_DIR, file.filename)
             with open(pdf_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-        bot = AdvancedChatBot(
-            pdf_path=pdf_path,
-            url=url.strip(),
-            retriever_type=retriever,
-            datasource=datasource,
-        )
+        bot = AdvancedChatBot(pdf_path=pdf_path, url=url.strip(), retriever_type=retriever)
         bot.process_all()
         answer = bot.query(question)
 
@@ -50,8 +43,7 @@ async def query_bot(
             "request": request,
             "question": question,
             "answer": answer,
-            "retriever": retriever,
-            "datasource": datasource
+            "retriever": retriever
         })
 
     except Exception as e:
