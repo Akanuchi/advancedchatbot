@@ -1,4 +1,5 @@
 import os
+import pdfplumber
 from llama_index.core import (
     VectorStoreIndex,
     DocumentSummaryIndex,
@@ -13,7 +14,6 @@ from llama_index.core.retrievers import (
     SummaryIndexRetriever,
     KeywordTableSimpleRetriever
 )
-import pdfplumber
 
 
 class AdvancedChatBot:
@@ -40,9 +40,10 @@ class AdvancedChatBot:
                     text += page_text + "\n"
 
         if not text.strip():
-            raise ValueError("No readable text extracted from PDF.")
+            raise ValueError("No readable text extracted from PDF. Consider using OCR for scanned PDFs.")
 
-        return [Document(text)]
+        # Correct usage: keyword argument for text
+        return [Document(text=text)]
 
     def build_index(self, docs):
         """Build index and retriever based on selected strategy."""
