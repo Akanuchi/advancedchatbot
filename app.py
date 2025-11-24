@@ -26,6 +26,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DATABASE_URL = os.getenv("DATABASE_URL")  # postgresql://user:pass@host:5432/dbname
 
+# Debug log for DATABASE_URL
+print("DATABASE_URL from env:", DATABASE_URL)
+
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
 
