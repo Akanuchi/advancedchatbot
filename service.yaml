@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: pdf-db-assistant-svc
+  name: advancedchatbot-svc
 spec:
   selector:
-    app: pdf-db-assistant
+    app: advancedchatbot
   ports:
     - protocol: TCP
       port: 80

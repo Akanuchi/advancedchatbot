@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pdf-db-assistant
+  name: advancedchatbot
   labels:
-    app: pdf-db-assistant
+    app: advancedchatbot
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: pdf-db-assistant
+      app: advancedchatbot
   template:
     metadata:
       labels:
-        app: pdf-db-assistant
+        app: advancedchatbot
     spec:
       containers:
-        - name: pdf-db-assistant
-          image: yourregistry.azurecr.io/pdf-db-assistant:latest
+        - name: advancedchatbot
+          image: akanuchiacr.azurecr.io/advancedchatbot:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -24,12 +24,12 @@ spec:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: openai-secret
+                  name: app-secret
                   key: OPENAI_API_KEY
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret
+                  name: app-secret
                   key: DATABASE_URL
           volumeMounts:
             - name: uploads
