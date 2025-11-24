@@ -57,6 +57,10 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         EOF
 
+    - name: Delete old deployments
+      run: |
+        kubectl delete deploy chatbot-api pdf-chat-assistant pdf-db-assistant --ignore-not-found -n advancedchatbot
+
     - name: Deploy to AKS (Deployment + Service)
       run: |
         kubectl apply -f deployment.yaml
@@ -64,7 +68,11 @@ jobs:
 
     - name: Wait for rollout
       run: |
-        kubectl -n advancedchatbot rollout status deploy/advancedchatbot --timeout=120s
+        kubectl -n advancedchatbot rollout status deploy/advancedchatbot --timeout=300s || \
+        (echo "Rollout failed, printing pod logs..." && \
+         kubectl -n advancedchatbot get pods && \
+         kubectl -n advancedchatbot describe deploy advancedchatbot && \
+         kubectl -n advancedchatbot logs $(kubectl -n advancedchatbot get pods -l app=advancedchatbot -o jsonpath="{.items[0].metadata.name}") )
 
     - name: Restart deployment to pick up any changed secrets/image
       run: |
