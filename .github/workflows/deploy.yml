@@ -1,80 +1,54 @@
-name: CI/CD Pipeline for FastAPI on AKS
+name: Deploy to AKS
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
+
+env:
+  ACR_NAME: yourregistry
+  ACR_LOGIN_SERVER: yourregistry.azurecr.io
+  IMAGE_NAME: pdf-db-assistant
+  CLUSTER_RESOURCE_GROUP: your-aks-rg
+  CLUSTER_NAME: your-aks-cluster
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set AKS context
-      uses: azure/aks-set-context@v3
-      with:
-        resource-group: ${{ secrets.RESOURCE_GROUP }}
-        cluster-name: ${{ secrets.CLUSTER_NAME }}
-        subscription: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: ACR login
+        run: |
+          az acr login --name $ACR_NAME
 
-    - name: Build Docker image
-      run: |
-        docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest .
+      - name: Build and push image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest .
+          docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
 
-    - name: Login to ACR
-      run: |
-        echo ${{ secrets.REGISTRY_PASSWORD }} | docker login ${{ secrets.REGISTRY_LOGIN_SERVER }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+      - name: Set AKS context
+        run: |
+          az aks get-credentials -g $CLUSTER_RESOURCE_GROUP -n $CLUSTER_NAME --overwrite-existing
 
-    - name: Push Docker image
-      run: |
-        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest
+      - name: Create/Update secrets
+        run: |
+          kubectl create secret generic openai-secret --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic postgres-secret --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret docker-registry acr-pull-secret \
+            --docker-server=$ACR_LOGIN_SERVER \
+            --docker-username=${{ secrets.ACR_USERNAME }} \
+            --docker-password=${{ secrets.ACR_PASSWORD }} \
+            --docker-email=dummy@example.com \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-    - name: Ensure namespace exists
-      run: |
-        kubectl create namespace advancedchatbot --dry-run=client -o yaml | kubectl apply -f -
-
-    - name: Apply Kubernetes secret for app
-      run: |
-        kubectl apply -n advancedchatbot -f - <<EOF
-        apiVersion: v1
-        kind: Secret
-        metadata:
-          name: app-secret
-          namespace: advancedchatbot
-        type: Opaque
-        stringData:
-          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        EOF
-
-    - name: Deploy to AKS (Deployment + Service)
-      run: |
-        # apply manifests (they include the namespace in the YAML)
-        kubectl apply -f deployment.yaml
-        kubectl apply -f service.yaml
-
-    - name: Wait for rollout
-      run: |
-        kubectl -n advancedchatbot rollout status deploy/advancedchatbot --timeout=120s
-
-    - name: Restart deployment to pick up any changed secrets/image
-      run: |
-        kubectl -n advancedchatbot rollout restart deploy/advancedchatbot
-
-    - name: Confirm environment variable is present (debug)
-      env:
-        KUBECTL_NAMESPACE: advancedchatbot
-      run: |
-        POD=$(kubectl -n $KUBECTL_NAMESPACE get pods -l app=advancedchatbot -o jsonpath="{.items[0].metadata.name}")
-        echo "pod: $POD"
-        kubectl -n $KUBECTL_NAMESPACE exec "$POD" -- printenv | grep DATABASE_URL || echo "DATABASE_URL not found in pod env"
+      - name: Deploy manifests
+        run: |
+          kubectl apply -f deployment.yaml
+          kubectl apply -f service.yaml
