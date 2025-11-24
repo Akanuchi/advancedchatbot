@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
     - name: Checkout code
@@ -25,21 +26,52 @@ jobs:
         cluster-name: ${{ secrets.CLUSTER_NAME }}
         subscription: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-    - name: Build and push Docker image
+    - name: Build Docker image
       run: |
         docker build -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest .
+
+    - name: Login to ACR
+      run: |
         echo ${{ secrets.REGISTRY_PASSWORD }} | docker login ${{ secrets.REGISTRY_LOGIN_SERVER }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+
+    - name: Push Docker image
+      run: |
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/advancedchatbot:latest
 
-    - name: Create Kubernetes secret for app
+    - name: Ensure namespace exists
       run: |
-        kubectl create secret generic app-secret \
-          --from-literal=SESSION_SECRET=${{ secrets.SESSION_SECRET }} \
-          --from-literal=OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-          --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
-          -n advancedchatbot --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace advancedchatbot --dry-run=client -o yaml | kubectl apply -f -
 
-    - name: Deploy to AKS
+    - name: Apply Kubernetes secret for app
+      run: |
+        kubectl apply -n advancedchatbot -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: app-secret
+          namespace: advancedchatbot
+        type: Opaque
+        stringData:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        EOF
+
+    - name: Deploy to AKS (Deployment + Service)
       run: |
         kubectl apply -f deployment.yaml
         kubectl apply -f service.yaml
+
+    - name: Wait for rollout
+      run: |
+        kubectl -n advancedchatbot rollout status deploy/advancedchatbot --timeout=120s
+
+    - name: Restart deployment to pick up any changed secrets/image
+      run: |
+        kubectl -n advancedchatbot rollout restart deploy/advancedchatbot
+
+    - name: Confirm environment variable is present (debug)
+      run: |
+        POD=$(kubectl -n advancedchatbot get pods -l app=advancedchatbot -o jsonpath="{.items[0].metadata.name}")
+        echo "pod: $POD"
+        kubectl -n advancedchatbot exec "$POD" -- printenv | grep DATABASE_URL || echo "DATABASE_URL not found in pod env"
