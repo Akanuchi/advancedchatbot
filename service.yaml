@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: advancedchatbot-svc
+  namespace: advancedchatbot
 spec:
   selector:
     app: advancedchatbot
