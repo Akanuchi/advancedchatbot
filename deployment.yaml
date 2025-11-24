@@ -12,6 +12,7 @@ metadata:
     app: advancedchatbot
 spec:
   replicas: 1
+  revisionHistoryLimit: 2   # keep only 2 old ReplicaSets
   selector:
     matchLabels:
       app: advancedchatbot
@@ -24,6 +25,8 @@ spec:
         - name: advancedchatbot
           image: akanuchiacr.azurecr.io/advancedchatbot:latest
           imagePullPolicy: Always
+          command: ["uvicorn"]
+          args: ["app:app", "--host", "0.0.0.0", "--port", "8000"]
           ports:
             - containerPort: 8000
           env:
@@ -46,13 +49,17 @@ spec:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 20   # give FastAPI more time to start
-            periodSeconds: 10
+            initialDelaySeconds: 45   # wait longer before first check
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60   # give DB connection time
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
       imagePullSecrets:
         - name: acr-pull-secret
