@@ -9,8 +9,8 @@ env:
   PROJECT_ID: advancedchatbot-479400
   AR_REGION: us-east4
   AR_REPO_NAME: chatbot-docker-repo
-  GKE_CLUSTER: advanced-chatbot-cluster
-  GKE_ZONE: us-east4-a 
+  GKE_CLUSTER: advancedchatbot-cluster     # Actual cluster name
+  GKE_REGION: us-east1                     # Actual cluster region
   IMAGE_NAME: advancedchatbot
   IMAGE_TAG: latest
 
@@ -25,26 +25,29 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Authenticate GitHub Actions to GCP
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # Install gcloud
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
+      # Enable Docker authentication via gcloud
       - name: Configure Docker to use gcloud as a credential helper
         run: |
           gcloud auth configure-docker ${AR_REGION}-docker.pkg.dev
 
-      # Build IMAGE_REPO dynamically (cannot be done in workflow env)
+      # Build IMAGE_REPO dynamically (GitHub does not allow expressions inside workflow env)
       - name: Build IMAGE_REPO variable
-        id: prep
         run: |
           echo "IMAGE_REPO=${AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}" >> $GITHUB_ENV
 
+      # Build and push container to Artifact Registry
       - name: Build and Push Image to Artifact Registry
         run: |
           IMAGE_PATH="${IMAGE_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -52,17 +55,20 @@ jobs:
           docker build -t "$IMAGE_PATH" .
           docker push "$IMAGE_PATH"
 
+      # Connect kubectl to the GKE cluster
       - name: Get GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_ZONE }}
+          region: ${{ env.GKE_REGION }}     # REGIONAL cluster
           project_id: ${{ env.PROJECT_ID }}
 
+      # Deploy Kubernetes manifests
       - name: Deploy to GKE
         run: |
           kubectl apply -f deployment.yaml -f service.yaml
 
+      # Restart deployment to use new image
       - name: Rollout Restart Deployment
         run: |
           kubectl rollout restart deployment/advancedchatbot -n advancedchatbot
