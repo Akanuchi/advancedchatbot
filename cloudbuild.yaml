@@ -1,0 +1,75 @@
+# Replace these environment variables with your actual values
+timeout: '1600s'
+env:
+- _GKE_CLUSTER_NAME=[YOUR_GKE_CLUSTER_NAME]  # e.g., chatbot-cluster
+- _GKE_ZONE=[YOUR_GKE_CLUSTER_ZONE]        # e.g., us-central1-c
+- _PROJECT_ID=[YOUR_PROJECT_ID]            # e.g., advancedchatbot-479400
+- _AR_REPO_REGION=[YOUR_AR_REGION]         # e.g., us-central1
+- _AR_REPO_NAME=[YOUR_AR_REPO_NAME]        # e.g., docker-repo
+
+steps:
+# ----------------------------------------------------------------------
+# 1. Build and Tag the Docker Image
+# ----------------------------------------------------------------------
+- name: 'gcr.io/cloud-builders/docker'
+  id: Build
+  args:
+    - 'build'
+    - '-t'
+    - '${_AR_REPO_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_AR_REPO_NAME}/advancedchatbot:latest'
+    - '.'
+
+# ----------------------------------------------------------------------
+# 2. Push the Docker Image to Artifact Registry
+# ----------------------------------------------------------------------
+- name: 'gcr.io/cloud-builders/docker'
+  id: Push
+  args:
+    - 'push'
+    - '${_AR_REPO_REGION}-docker.pkg.dev/${_PROJECT_ID}/${_AR_REPO_NAME}/advancedchatbot:latest'
+
+# ----------------------------------------------------------------------
+# 3. Configure gcloud for GKE (Get Kubeconfig Credentials)
+# ----------------------------------------------------------------------
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: Get-Kubeconfig
+  entrypoint: gcloud
+  args:
+    - 'container'
+    - 'clusters'
+    - 'get-credentials'
+    - '${_GKE_CLUSTER_NAME}'
+    - '--zone'
+    - '${_GKE_ZONE}'
+    - '--project'
+    - '${_PROJECT_ID}'
+
+# ----------------------------------------------------------------------
+# 4. Deploy Kubernetes Manifests to GKE
+# ----------------------------------------------------------------------
+- name: 'gcr.io/cloud-builders/kubectl'
+  id: Deploy-K8s
+  args:
+    - 'apply'
+    - '-f'
+    - 'deployment.yaml'
+    - '-f'
+    - 'service.yaml'
+    env:
+    - 'CLOUDSDK_COMPUTE_ZONE=${_GKE_ZONE}'
+    - 'CLOUDSDK_CONTAINER_CLUSTER=${_GKE_CLUSTER_NAME}'
+
+# ----------------------------------------------------------------------
+# 5. Rollout Restart (to pick up the new image tag)
+# ----------------------------------------------------------------------
+- name: 'gcr.io/cloud-builders/kubectl'
+  id: Rollout-Restart
+  args:
+    - 'rollout'
+    - 'restart'
+    - 'deployment/advancedchatbot'
+    - '-n'
+    - 'advancedchatbot'
+  env:
+    - 'CLOUDSDK_COMPUTE_ZONE=${_GKE_ZONE}'
+    - 'CLOUDSDK_CONTAINER_CLUSTER=${_GKE_CLUSTER_NAME}'
