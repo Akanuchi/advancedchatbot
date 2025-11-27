@@ -1,0 +1,81 @@
+name: Deploy to GKE via GitHub Actions
+
+on:
+  push:
+    branches:
+      - main
+
+# Define project-specific variables
+env:
+  PROJECT_ID: [YOUR_PROJECT_ID]                            # e.g., advancedchatbot-479400
+  AR_REGION: [YOUR_AR_REGION]                              # e.g., us-central1
+  AR_REPO_NAME: [YOUR_AR_REPO_NAME]                        # e.g., docker-repo
+  GKE_CLUSTER: [YOUR_GKE_CLUSTER_NAME]                     # e.g., chatbot-cluster
+  GKE_ZONE: [YOUR_GKE_CLUSTER_ZONE]                        # e.g., us-central1-c
+  IMAGE_NAME: advancedchatbot
+  IMAGE_TAG: latest
+  IMAGE_REPO: ${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO_NAME }}
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write' # Required for Workload Identity if you use it, or fine for key auth
+    
+    steps:
+      # ----------------------------------------------------------------------
+      # 1. Checkout Code
+      # ----------------------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------------------
+      # 2. Authenticate to GCP (using the JSON key stored as a secret)
+      # ----------------------------------------------------------------------
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # ----------------------------------------------------------------------
+      # 3. Configure Docker to use Artifact Registry
+      # ----------------------------------------------------------------------
+      - name: Setup Docker for Artifact Registry
+        uses: 'google-github-actions/setup-gcloud@v2'
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          # Authenticate Docker client for the AR region
+          setup_docker: true
+
+      # ----------------------------------------------------------------------
+      # 4. Build, Tag, and Push Docker Image
+      # ----------------------------------------------------------------------
+      - name: Build and Push Image to Artifact Registry
+        run: |
+          docker build -t $IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG .
+          docker push $IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG
+
+      # ----------------------------------------------------------------------
+      # 5. Get GKE Credentials
+      # ----------------------------------------------------------------------
+      - name: Get GKE Credentials
+        uses: 'google-github-actions/get-gke-credentials@v2'
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      # ----------------------------------------------------------------------
+      # 6. Deploy Kubernetes Manifests
+      # ----------------------------------------------------------------------
+      - name: Deploy to GKE
+        run: |
+          kubectl apply -f deployment.yaml -f service.yaml
+
+      # ----------------------------------------------------------------------
+      # 7. Perform Rolling Restart
+      # ----------------------------------------------------------------------
+      - name: Rollout Restart Deployment
+        run: |
+          kubectl rollout restart deployment/advancedchatbot -n advancedchatbot
