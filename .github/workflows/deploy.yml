@@ -10,7 +10,7 @@ env:
   AR_REGION: us-east4
   AR_REPO_NAME: chatbot-docker-repo
   GKE_CLUSTER: advanced-chatbot-cluster
-  GKE_ZONE: us-east4 
+  GKE_ZONE: us-east4-a 
   IMAGE_NAME: advancedchatbot
   IMAGE_TAG: latest
 
