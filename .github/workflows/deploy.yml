@@ -9,8 +9,8 @@ env:
   PROJECT_ID: advancedchatbot-479400
   AR_REGION: us-east4
   AR_REPO_NAME: chatbot-docker-repo
-  GKE_CLUSTER: advancedchatbot-cluster     # Actual cluster name
-  GKE_REGION: us-east1                     # Actual cluster region
+  GKE_CLUSTER: advancedchatbot-cluster
+  GKE_REGION: us-east1
   IMAGE_NAME: advancedchatbot
   IMAGE_TAG: latest
 
@@ -37,17 +37,17 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # Enable Docker authentication via gcloud
+      # Docker auth
       - name: Configure Docker to use gcloud as a credential helper
         run: |
           gcloud auth configure-docker ${AR_REGION}-docker.pkg.dev
 
-      # Build IMAGE_REPO dynamically (GitHub does not allow expressions inside workflow env)
+      # Build IMAGE_REPO variable
       - name: Build IMAGE_REPO variable
         run: |
           echo "IMAGE_REPO=${AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}" >> $GITHUB_ENV
 
-      # Build and push container to Artifact Registry
+      # Build and push image
       - name: Build and Push Image to Artifact Registry
         run: |
           IMAGE_PATH="${IMAGE_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -55,15 +55,15 @@ jobs:
           docker build -t "$IMAGE_PATH" .
           docker push "$IMAGE_PATH"
 
-      # Connect kubectl to the GKE cluster
+      # Connect kubectl to GKE
       - name: Get GKE Credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
-          region: ${{ env.GKE_REGION }}     # REGIONAL cluster
+          location: ${{ env.GKE_REGION }}   # FIXED: region → location
           project_id: ${{ env.PROJECT_ID }}
 
-      # Deploy Kubernetes manifests
+      # Deploy manifests
       - name: Deploy to GKE
         run: |
           kubectl apply -f deployment.yaml -f service.yaml
