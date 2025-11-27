@@ -5,15 +5,16 @@ on:
     branches:
       - main
 
-# Define project-specific variables
+# 1. Define Project-Specific Variables at the Workflow Level (Top Level)
 env:
-  PROJECT_ID: [YOUR_PROJECT_ID]                            # e.g., advancedchatbot-479400
-  AR_REGION: [YOUR_AR_REGION]                              # e.g., us-central1
-  AR_REPO_NAME: [YOUR_AR_REPO_NAME]                        # e.g., docker-repo
-  GKE_CLUSTER: [YOUR_GKE_CLUSTER_NAME]                     # e.g., chatbot-cluster
-  GKE_ZONE: [YOUR_GKE_CLUSTER_ZONE]                        # e.g., us-central1-c
+  PROJECT_ID: advancedchatbot-479400
+  AR_REGION: us-east4
+  AR_REPO_NAME: chatbot-docker-repo
+  GKE_CLUSTER: advanced-chatbot-cluster
+  GKE_ZONE: us-east1
   IMAGE_NAME: advancedchatbot
   IMAGE_TAG: latest
+  # Use env variables to construct the full repository path
   IMAGE_REPO: ${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO_NAME }}
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Required for Workload Identity if you use it, or fine for key auth
+      id-token: 'write' # For GCP authentication
     
     steps:
       # ----------------------------------------------------------------------
@@ -31,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------------------------------------------------
-      # 2. Authenticate to GCP (using the JSON key stored as a secret)
+      # 2. Authenticate to GCP
       # ----------------------------------------------------------------------
       - name: Authenticate to Google Cloud
         uses: 'google-github-actions/auth@v2'
@@ -53,8 +54,9 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Build and Push Image to Artifact Registry
         run: |
-          docker build -t $IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG .
-          docker push $IMAGE_REPO/$IMAGE_NAME:$IMAGE_TAG
+          # Use the constructed variable IMAGE_REPO
+          docker build -t ${{ env.IMAGE_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+          docker push ${{ env.IMAGE_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       # ----------------------------------------------------------------------
       # 5. Get GKE Credentials

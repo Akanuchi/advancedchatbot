@@ -1,14 +1,21 @@
+# FastAPI Web Framework and Server
 fastapi
 uvicorn[standard]
 jinja2
 python-multipart
 
+# LlamaIndex Core and Components
+# NOTE: LlamaIndex now uses individual packages for components
 llama-index-core
 llama-index-embeddings-openai
 llama-index-llms-openai
 
+# Data Handling
 pdfplumber
-PyPDF2
+pypdf2
 
+# Database Connectivity (CRITICAL FOR CLOUD SQL MIGRATION)
 sqlalchemy
+# We must use 'psycopg2-binary' as you have, as it includes the necessary C libraries
+# needed by the Dockerfile's 'libpq-dev' package.
 psycopg2-binary

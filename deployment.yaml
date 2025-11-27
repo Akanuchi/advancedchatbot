@@ -12,7 +12,7 @@ metadata:
     app: advancedchatbot
 spec:
   replicas: 1
-  revisionHistoryLimit: 2   # keep only 2 old ReplicaSets
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: advancedchatbot
@@ -22,8 +22,10 @@ spec:
         app: advancedchatbot
     spec:
       containers:
+        # 1. Your Application Container
         - name: advancedchatbot
-          image: akanuchiacr.azurecr.io/advancedchatbot:latest
+          # CHANGED: Image source from ACR to Artifact Registry
+          image: [AR_REGION]-docker.pkg.dev/[PROJECT_ID]/[AR_REPO_NAME]/advancedchatbot:latest
           imagePullPolicy: Always
           command: ["uvicorn"]
           args: ["app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -41,25 +43,44 @@ spec:
                   name: app-secret
                   key: OPENAI_API_KEY
             - name: DATABASE_URL
+              # Value is postgresql://user:pass@127.0.0.1:5432/dbname
               valueFrom:
                 secretKeyRef:
                   name: app-secret
                   key: DATABASE_URL
           readinessProbe:
+            # CHANGED: Path to /healthz
             httpGet:
-              path: /
+              path: /healthz
               port: 8000
-            initialDelaySeconds: 45   # wait longer before first check
+            initialDelaySeconds: 45
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 5
           livenessProbe:
+            # CHANGED: Path to /healthz
             httpGet:
-              path: /
+              path: /healthz
               port: 8000
-            initialDelaySeconds: 60   # give DB connection time
+            initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 5
-      imagePullSecrets:
-        - name: acr-pull-secret
+            
+        # ADDED: Cloud SQL Auth Proxy Sidecar Container
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.19.0
+          securityContext:
+            runAsNonRoot: true
+          # Connect securely using the instance connection name
+          command:
+            - "/cloud-sql-proxy"
+            - "-ip_address_types=PRIVATE"
+            # IMPORTANT: Replace with your Cloud SQL Instance Connection Name
+            # Format: [PROJECT_ID]:[REGION]:[INSTANCE_ID]
+            - "[PROJECT_ID]:[REGION]:[INSTANCE_ID]"
+            - "--port=5432" # Explicitly listen on port 5432
+
+      # REMOVED: Azure Image Pull Secret (GKE uses the Node Service Account for AR)
+      # imagePullSecrets:
+      #   - name: acr-pull-secret
