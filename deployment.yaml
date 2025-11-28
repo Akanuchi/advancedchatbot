@@ -22,6 +22,7 @@ spec:
         app: advancedchatbot
     spec:
       containers:
+        # Application Container
         - name: advancedchatbot
           image: us-east4-docker.pkg.dev/advancedchatbot-479400/chatbot-docker-repo/advancedchatbot:latest
           imagePullPolicy: Always
@@ -40,23 +41,11 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_USER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_PASSWORD
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_NAME
             - name: DATABASE_URL
-              value: "postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:5432/${DB_NAME}"
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DATABASE_URL
           readinessProbe:
             httpGet:
               path: /healthz
@@ -74,11 +63,13 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 5
 
+        # Cloud SQL Auth Proxy Sidecar Container
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.19.0
           securityContext:
             runAsNonRoot: true
           command:
             - "/cloud-sql-proxy"
-            - "--private-ip"
             - "--instances=advancedchatbot-479400:us-east1:chatbot-db=tcp:5432"
+            - "--health-check"
+            - "--private-ip"
