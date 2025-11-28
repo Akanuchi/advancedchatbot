@@ -12,7 +12,6 @@ metadata:
     app: advancedchatbot
 spec:
   replicas: 1
-  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: advancedchatbot
@@ -40,11 +39,21 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-            - name: DATABASE_URL
+            - name: DB_USER
               valueFrom:
                 secretKeyRef:
                   name: app-secret
-                  key: DATABASE_URL
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: DB_NAME
           readinessProbe:
             httpGet:
               path: /healthz
@@ -69,5 +78,5 @@ spec:
           command:
             - "/cloud-sql-proxy"
             - "--private-ip"
-            - "advancedchatbot-479400:us-east1:akanuchi-postgres"  # <=== Replace with your actual Cloud SQL instance connection name
+            - "advancedchatbot-479400:us-east1:akanuchi-postgres"
             - "--port=5432"
