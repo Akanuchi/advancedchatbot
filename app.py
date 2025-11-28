@@ -13,9 +13,9 @@ from llama_index.core import SQLDatabase
 
 from AdvancedChatBot import AdvancedChatBot
 
-app = FastAPI()
+app = FastAPI(title="AdvancedChatBot API")
 
-# Static and templates
+# Static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -23,15 +23,14 @@ templates = Jinja2Templates(directory="templates")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Environment configuration
+# Load secrets from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SESSION_SECRET = os.getenv("SESSION_SECRET")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Cloud SQL instance is running locally via the proxy
-DB_HOST = "127.0.0.1"
+DB_HOST = "127.0.0.1"  # Cloud SQL Proxy runs locally
 DB_PORT = 5432
 
 # Construct DATABASE_URL dynamically
@@ -46,13 +45,19 @@ os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 # Global SQL engine
 SQL_ENGINE = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-@app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+# Startup check: validate DB connection
+@app.on_event("startup")
+def startup_event():
+    try:
+        with SQL_ENGINE.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful.")
+    except OperationalError as e:
+        print(f"❌ Database connection failed: {e}")
 
+# Health check endpoint
 @app.get("/healthz")
 def health_check():
-    """Kubernetes liveness and readiness probe endpoint."""
     try:
         with SQL_ENGINE.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -60,6 +65,12 @@ def health_check():
     except OperationalError:
         raise HTTPException(status_code=503, detail="Database connection failed.")
 
+# Root endpoint
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# Query endpoint
 @app.post("/query", response_class=HTMLResponse)
 async def query_bot(
     request: Request,
@@ -68,6 +79,7 @@ async def query_bot(
     retriever: str = Form(...)
 ):
     try:
+        # Database retrieval
         if retriever == "database":
             if not SQL_ENGINE:
                 raise HTTPException(status_code=400, detail="Database not configured.")
@@ -82,7 +94,7 @@ async def query_bot(
                 "retriever": retriever
             })
 
-        # PDF handling modes
+        # PDF retrieval
         if not file or not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Please upload a valid PDF.")
 

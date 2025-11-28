@@ -12,7 +12,6 @@ metadata:
     app: advancedchatbot
 spec:
   replicas: 1
-  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: advancedchatbot
@@ -22,7 +21,6 @@ spec:
         app: advancedchatbot
     spec:
       containers:
-        # Application container
         - name: advancedchatbot
           image: us-east4-docker.pkg.dev/advancedchatbot-479400/chatbot-docker-repo/advancedchatbot:latest
           imagePullPolicy: Always
@@ -41,44 +39,28 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-            - name: DB_USER
+            - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secret
-                  key: DB_USER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_PASSWORD
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_NAME
-            - name: CLOUD_SQL_INSTANCE
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: CLOUD_SQL_INSTANCE
+                  key: DATABASE_URL
           readinessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 45
-            periodSeconds: 15
-            timeoutSeconds: 5
-            failureThreshold: 5
-          livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 5
             failureThreshold: 5
 
-        # Cloud SQL Auth Proxy sidecar
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.19.0
           securityContext:
@@ -86,9 +68,8 @@ spec:
           command:
             - "/cloud-sql-proxy"
             - "--private-ip"
-            - "$(CLOUD_SQL_INSTANCE)"
+            - "advancedchatbot-479400:us-east1:akanuchi-postgres"
             - "--port=5432"
-
 ---
 apiVersion: v1
 kind: Service
@@ -96,9 +77,9 @@ metadata:
   name: advancedchatbot-svc
   namespace: advancedchatbot
 spec:
-  type: LoadBalancer
   selector:
     app: advancedchatbot
+  type: LoadBalancer
   ports:
     - protocol: TCP
       port: 80
