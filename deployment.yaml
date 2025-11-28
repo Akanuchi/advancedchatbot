@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: advancedchatbot
   namespace: advancedchatbot
+  labels:
+    app: advancedchatbot
 spec:
   replicas: 2
   selector:
@@ -16,6 +18,7 @@ spec:
       containers:
         - name: advancedchatbot
           image: us-east4-docker.pkg.dev/advancedchatbot-479400/chatbot-docker-repo/advancedchatbot:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           env:
@@ -40,7 +43,7 @@ spec:
                   name: app-secret
                   key: DB_NAME
             - name: DB_HOST
-              value: 127.0.0.1
+              value: "127.0.0.1"
             - name: DB_PORT
               value: "5432"
           readinessProbe:
@@ -49,7 +52,6 @@ spec:
               port: 8000
             initialDelaySeconds: 10
             periodSeconds: 5
-            timeoutSeconds: 3
             failureThreshold: 5
           livenessProbe:
             httpGet:
@@ -57,7 +59,6 @@ spec:
               port: 8000
             initialDelaySeconds: 20
             periodSeconds: 10
-            timeoutSeconds: 3
             failureThreshold: 5
           resources:
             requests:
@@ -68,18 +69,27 @@ spec:
               memory: "3Gi"
               cpu: "1"
               ephemeral-storage: "1Gi"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Waiting for Cloud SQL Proxy..."
+              while ! nc -z 127.0.0.1 5432; do sleep 2; done
+              echo "Cloud SQL Proxy ready. Starting app..."
+              exec uvicorn app:app --host 0.0.0.0 --port 8000
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+          ports:
+            - containerPort: 5432
           args:
             - --port=5432
             - advancedchatbot-479400:us-east1:akanuchi-postgres
           resources:
             requests:
-              memory: "100Mi"
               cpu: "100m"
+              memory: "100Mi"
               ephemeral-storage: "1Gi"
             limits:
-              memory: "250Mi"
               cpu: "250m"
+              memory: "250Mi"
               ephemeral-storage: "1Gi"
       restartPolicy: Always
