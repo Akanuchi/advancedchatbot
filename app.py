@@ -7,8 +7,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from sqlalchemy import create_engine, text # ADDED: text for simple DB query
-from sqlalchemy.exc import OperationalError # ADDED: For health check
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from llama_index.core import SQLDatabase
 
 from AdvancedChatBot import AdvancedChatBot
@@ -23,14 +23,25 @@ templates = Jinja2Templates(directory="templates")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Env configuration
+# ----------------------------
+# Environment configuration
+# ----------------------------
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-# Database URL is now expected to point to the local proxy: 
-# postgresql://user:pass@127.0.0.1:5432/dbname
-DATABASE_URL = os.getenv("DATABASE_URL") 
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
 
-# Debug log for DATABASE_URL
-print("DATABASE_URL from env:", DATABASE_URL)
+# Construct DATABASE_URL dynamically if DB credentials exist
+DB_HOST = "127.0.0.1"  # Cloud SQL Proxy inside the pod
+DB_PORT = 5432
+
+if DB_USER and DB_PASSWORD and DB_NAME:
+    DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+else:
+    DATABASE_URL = None
+
+# Debug logs (remove in production)
+print("DATABASE_URL constructed:", DATABASE_URL)
 
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
@@ -40,30 +51,29 @@ os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 # Global SQL engine setup
 SQL_ENGINE = None
 if DATABASE_URL:
-    # Use a global engine that may be initialized before the proxy is ready
     SQL_ENGINE = create_engine(DATABASE_URL, pool_pre_ping=True)
 
+# ----------------------------
+# Routes
+# ----------------------------
 @app.get("/")
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# ADDED: Kubernetes Health Check
 @app.get("/healthz")
 def health_check():
     """Kubernetes liveness and readiness probe endpoint."""
     if SQL_ENGINE:
         try:
-            # Try a simple connection test to ensure the proxy and DB are alive
             with SQL_ENGINE.connect() as connection:
                 connection.execute(text("SELECT 1"))
             return {"status": "ok", "db_connected": True}
         except OperationalError:
-            # This will cause the readiness/liveness probe to fail if the proxy/DB isn't ready
-            raise HTTPException(status_code=503, detail="Database connection failed (Auth Proxy not ready or DB unavailable).")
-    
-    # If no database is configured, just return OK
+            raise HTTPException(
+                status_code=503,
+                detail="Database connection failed (Auth Proxy not ready or DB unavailable)."
+            )
     return {"status": "ok", "db_connected": False}
-
 
 @app.post("/query", response_class=HTMLResponse)
 async def query_bot(
@@ -73,12 +83,13 @@ async def query_bot(
     retriever: str = Form(...)
 ):
     try:
-        # Database query mode (no file required)
+        # --------------------
+        # Database query mode
+        # --------------------
         if retriever == "database":
             if not SQL_ENGINE:
                 raise HTTPException(status_code=400, detail="Database connection not configured.")
-            
-            # The SQLDatabase object is created only when needed, ensuring the latest connection state
+
             sql_database = SQLDatabase(SQL_ENGINE)
             bot = AdvancedChatBot(retriever_type="database", sql_database=sql_database)
             answer = bot.query_database(question)
@@ -90,10 +101,9 @@ async def query_bot(
                 "retriever": retriever
             })
 
-        # ... (rest of the PDF handling logic remains the same)
-        # ... (omitted for brevity, assume PDF logic is unchanged)
-        
-        # PDF modes: vector, summary, keyword
+        # --------------------
+        # PDF processing modes
+        # --------------------
         if not file or not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Please upload a valid PDF for document query modes.")
 
@@ -117,7 +127,6 @@ async def query_bot(
             "answer": answer,
             "retriever": retriever
         })
-
 
     except HTTPException as e:
         raise e

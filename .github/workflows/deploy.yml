@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -31,18 +31,18 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # Install gcloud
+      # Setup gcloud
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      # Docker auth
+      # Configure Docker
       - name: Configure Docker to use gcloud as a credential helper
         run: |
           gcloud auth configure-docker ${AR_REGION}-docker.pkg.dev
 
-      # Build IMAGE_REPO variable
+      # Build IMAGE_REPO
       - name: Build IMAGE_REPO variable
         run: |
           echo "IMAGE_REPO=${AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}" >> $GITHUB_ENV
@@ -60,15 +60,28 @@ jobs:
         uses: google-github-actions/get-gke-credentials@v2
         with:
           cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_REGION }}   # FIXED: region → location
+          location: ${{ env.GKE_REGION }}
           project_id: ${{ env.PROJECT_ID }}
+
+      # Create Kubernetes secret from GitHub Secrets
+      - name: Create Kubernetes Secret
+        run: |
+          kubectl create secret generic app-secret \
+            --namespace=advancedchatbot \
+            --from-literal=SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
+            --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+            --from-literal=DB_USER="${{ secrets.DB_USER }}" \
+            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=DB_NAME="${{ secrets.DB_NAME }}" \
+            --from-literal=CLOUD_SQL_INSTANCE="${{ secrets.CLOUD_SQL_INSTANCE }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       # Deploy manifests
       - name: Deploy to GKE
         run: |
           kubectl apply -f deployment.yaml -f service.yaml
 
-      # Restart deployment to use new image
+      # Restart deployment
       - name: Rollout Restart Deployment
         run: |
-          kubectl rollout restart deployment/advancedchatbot -n advancedchatbot
+          kubectl rollout restart deployment/${{ env.IMAGE_NAME }} -n advancedchatbot
