@@ -2,11 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps (build-essential for any wheels) + libpq-dev for psycopg2 + netcat
+# System deps (build-essential for wheels) + libpq-dev for psycopg2 + netcat-openbsd
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
-    netcat \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
