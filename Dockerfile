@@ -2,11 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# System deps (build-essential for any wheels)
-# ADDED: libpq-dev for psycopg2/PostgreSQL driver
+# System deps (build-essential for any wheels) + libpq-dev for psycopg2 + netcat
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
+    netcat \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -16,5 +16,4 @@ COPY . .
 
 EXPOSE 8000
 
-# Uvicorn server
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
