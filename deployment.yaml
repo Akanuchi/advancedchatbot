@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: advancedchatbot
-          image: [AR_REGION]-docker.pkg.dev/[PROJECT_ID]/[AR_REPO_NAME]/advancedchatbot:latest
+          image: us-east4-docker.pkg.dev/advancedchatbot-479400/chatbot-docker-repo/advancedchatbot:latest
           imagePullPolicy: Always
           command: ["uvicorn"]
           args: ["app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -82,24 +82,3 @@ spec:
             - "/cloud-sql-proxy"
             - "--private-ip"
             - "--instances=advancedchatbot-479400:us-east1:chatbot-db=tcp:5432"
-          # Optional: mount GCP service account secret if using credentials JSON
-          # volumeMounts:
-          #   - name: gcp-sa-key
-          #     mountPath: /secrets
-          #     readOnly: true
-
-      # Remove imagePullSecrets if using default node service account with Artifact Registry access
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: advancedchatbot-svc
-  namespace: advancedchatbot
-spec:
-  type: LoadBalancer
-  selector:
-    app: advancedchatbot
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8000

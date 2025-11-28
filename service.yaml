@@ -4,10 +4,10 @@ metadata:
   name: advancedchatbot-svc
   namespace: advancedchatbot
 spec:
+  type: LoadBalancer
   selector:
     app: advancedchatbot
   ports:
     - protocol: TCP
       port: 80
       targetPort: 8000
-  type: LoadBalancer
