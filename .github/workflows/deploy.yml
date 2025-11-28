@@ -10,6 +10,7 @@ env:
   AR_REGION: us-east4
   AR_REPO_NAME: chatbot-docker-repo
   GKE_CLUSTER: advancedchatbot-cluster
+  # NOTE: Ensure this is the correct region/zone for your GKE cluster
   GKE_REGION: us-east1
   IMAGE_NAME: advancedchatbot
   IMAGE_TAG: latest
@@ -40,17 +41,17 @@ jobs:
       # Configure Docker
       - name: Configure Docker to use gcloud as a credential helper
         run: |
-          gcloud auth configure-docker ${AR_REGION}-docker.pkg.dev
+          gcloud auth configure-docker ${{ env.AR_REGION }}-docker.pkg.dev
 
       # Build IMAGE_REPO
       - name: Build IMAGE_REPO variable
         run: |
-          echo "IMAGE_REPO=${AR_REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}" >> $GITHUB_ENV
+          echo "IMAGE_REPO=${{ env.AR_REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.AR_REPO_NAME }}" >> $GITHUB_ENV
 
       # Build and push image
       - name: Build and Push Image to Artifact Registry
         run: |
-          IMAGE_PATH="${IMAGE_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+          IMAGE_PATH="${{ env.IMAGE_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
           echo "Pushing to: $IMAGE_PATH"
           docker build -t "$IMAGE_PATH" .
           docker push "$IMAGE_PATH"
@@ -66,14 +67,14 @@ jobs:
       # Create Kubernetes secret from GitHub Secrets
       - name: Create Kubernetes Secret
         run: |
+          # Construct the DATABASE_URL using secrets and the local proxy host (127.0.0.1)
+          DB_URL="postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@127.0.0.1:5432/${{ secrets.DB_NAME }}"
+          
           kubectl create secret generic app-secret \
             --namespace=advancedchatbot \
             --from-literal=SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
             --from-literal=OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-            --from-literal=DB_USER="${{ secrets.DB_USER }}" \
-            --from-literal=DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            --from-literal=DB_NAME="${{ secrets.DB_NAME }}" \
-            --from-literal=CLOUD_SQL_INSTANCE="${{ secrets.CLOUD_SQL_INSTANCE }}" \
+            --from-literal=DATABASE_URL="$DB_URL" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       # Deploy manifests

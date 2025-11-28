@@ -36,30 +36,13 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-
-            - name: DB_USER
+            
+            # NEW: Single composite DATABASE_URL variable
+            - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secret
-                  key: DB_USER
-
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_PASSWORD
-
-            - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: app-secret
-                  key: DB_NAME
-
-            # Cloud SQL proxy makes DB available at localhost:5432
-            - name: DB_HOST
-              value: "127.0.0.1"
-            - name: DB_PORT
-              value: "5432"
+                  key: DATABASE_URL
 
           # Health Checks
           livenessProbe:
@@ -97,6 +80,7 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           args:
             - "--port=5432"
+            # NOTE: Proxy connection name should be updated via GITHUB SECRET
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
           securityContext:
             runAsNonRoot: true

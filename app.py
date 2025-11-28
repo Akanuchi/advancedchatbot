@@ -24,41 +24,34 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ----------------------------
-# Load environment variables
+# Load environment variables (Simplified)
 # ----------------------------
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Cloud SQL Proxy runs inside container as localhost
-DB_HOST = "127.0.0.1"
-DB_PORT = 5432
+# --- Startup Validation ---
+if not OPENAI_API_KEY:
+    print("❌ Critical: OPENAI_API_KEY not found. Application cannot start.")
+    # Raise error to stop the application gracefully (but prevent Uvicorn from starting)
+    raise ValueError("OPENAI_API_KEY not set.") 
 
-# Validate required env vars early
-missing_vars = []
-for var_name, var_value in [
-    ("OPENAI_API_KEY", OPENAI_API_KEY),
-    ("DB_USER", DB_USER),
-    ("DB_PASSWORD", DB_PASSWORD),
-    ("DB_NAME", DB_NAME),
-]:
-    if not var_value:
-        missing_vars.append(var_name)
-
-if missing_vars:
-    print("❌ Missing environment variables:", missing_vars)
-
-# Construct DB URL
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-print("DATABASE_URL constructed:", DATABASE_URL)
+if not DATABASE_URL:
+    print("❌ Critical: DATABASE_URL not found. Database features will fail.")
+    # Raise error to stop the application
+    raise ValueError("DATABASE_URL not set.") 
 
 # Required for LLM libraries
-if OPENAI_API_KEY:
-    os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
-# Global SQL engine
-SQL_ENGINE = create_engine(DATABASE_URL, pool_pre_ping=True)
+print("✅ Database URL configured successfully.")
+
+# Global SQL engine - Will fail here if URL or credentials are wrong
+try:
+    SQL_ENGINE = create_engine(DATABASE_URL, pool_pre_ping=True)
+except Exception as e:
+    print(f"❌ Error creating SQL engine: {e}")
+    # Raise error to stop the application
+    raise RuntimeError(f"Failed to initialize SQL database: {e}")
 
 
 # ----------------------------
@@ -77,10 +70,12 @@ def health_check():
     """
     try:
         with SQL_ENGINE.connect() as conn:
+            # Use 'SELECT 1' to check connection without querying tables
             conn.execute(text("SELECT 1"))
         return {"status": "ok", "db_connected": True}
     except Exception as e:
         print("❌ Health check DB error:", str(e))
+        # This will trigger the Kubernetes probe failure (503 status code)
         raise HTTPException(status_code=503, detail="Database connection failed.")
 
 
