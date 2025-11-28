@@ -1,8 +1,25 @@
+# -------------------------------------------
+# 1. Kubernetes Service Account (KSA) for WI
+#    - This KSA must be created and annotated
+#      before applying this file (see previous steps)
+# -------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudsql-sa
+  namespace: advancedchatbot
+---
+# -------------------------------------------
+# 2. Namespace (Existing)
+# -------------------------------------------
 apiVersion: v1
 kind: Namespace
 metadata:
   name: advancedchatbot
 ---
+# -------------------------------------------
+# 3. Deployment (Updated)
+# -------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,6 +37,9 @@ spec:
       labels:
         app: advancedchatbot
     spec:
+      # CRITICAL CHANGE: Use the new KSA for Workload Identity
+      serviceAccountName: cloudsql-sa
+      # The rest of the pod spec follows...
       containers:
         # -------------------------------------------
         # MAIN APPLICATION CONTAINER
@@ -29,28 +49,25 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
-
           env:
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-            
-            # Use the single composite DATABASE_URL variable
+            # Using 127.0.0.1 (localhost) and port 5432 which the proxy exposes
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secret
                   key: DATABASE_URL
 
-          # Health Checks - Increased initialDelaySeconds to give the Cloud SQL Proxy time to connect
+          # Health Checks (Keep the increased delays for safety)
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
-            # Increased from 20s to 45s
-            initialDelaySeconds: 45 
+            initialDelaySeconds: 45
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 5
@@ -59,8 +76,7 @@ spec:
             httpGet:
               path: /healthz
               port: 8000
-            # Increased from 10s to 30s
-            initialDelaySeconds: 30 
+            initialDelaySeconds: 30
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 5
@@ -76,7 +92,7 @@ spec:
               ephemeral-storage: "2Gi"
 
         # -------------------------------------------
-        # CLOUD SQL AUTH PROXY
+        # CLOUD SQL AUTH PROXY (Sidecar)
         # -------------------------------------------
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
@@ -84,8 +100,16 @@ spec:
             - "--port=5432"
             # Ensure this connection name is correct: ProjectID:Region:InstanceName
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
+            # ADDED: Telling the proxy to use the Workload Identity SA
+            - "--credentials-file=/var/run/secrets/tokens/gcp-sa/token"
           securityContext:
+            # BEST PRACTICE: Run as non-root and minimal user
             runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            # New, temporary security context for the proxy container to run as a lower UID/GID
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: "100m"
@@ -96,9 +120,11 @@ spec:
               memory: "250Mi"
               ephemeral-storage: "1Gi"
 
-      # Required for Artifact Registry access
-      serviceAccountName: default
 ---
+
+# -------------------------------------------
+# 4. Service (Existing)
+# -------------------------------------------
 apiVersion: v1
 kind: Service
 metadata:
