@@ -11,7 +11,7 @@ metadata:
   labels:
     app: advancedchatbot
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: advancedchatbot
@@ -21,13 +21,12 @@ spec:
         app: advancedchatbot
     spec:
       containers:
-        # -----------------------
-        # MAIN APPLICATION
-        # -----------------------
+        # -------------------------------------------
+        # MAIN APPLICATION CONTAINER
+        # -------------------------------------------
         - name: advancedchatbot
-          image: gcr.io/advancedchatbot-479400/advancedchatbot:latest
+          image: us-east4-docker.pkg.dev/advancedchatbot-479400/chatbot-docker-repo/advancedchatbot:latest
           imagePullPolicy: Always
-
           ports:
             - containerPort: 8000
 
@@ -56,6 +55,22 @@ spec:
                   name: app-secret
                   key: DB_NAME
 
+            # Cloud SQL proxy makes DB available at localhost:5432
+            - name: DB_HOST
+              value: "127.0.0.1"
+            - name: DB_PORT
+              value: "5432"
+
+          # Health Checks
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+
           readinessProbe:
             httpGet:
               path: /healthz
@@ -65,18 +80,19 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 5
 
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 15
-            periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+              ephemeral-storage: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "3Gi"
+              ephemeral-storage: "2Gi"
 
-        # -----------------------
-        # CLOUD SQL PROXY
-        # -----------------------
+        # -------------------------------------------
+        # CLOUD SQL AUTH PROXY
+        # -------------------------------------------
         - name: cloud-sql-proxy
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           args:
@@ -84,10 +100,18 @@ spec:
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
           securityContext:
             runAsNonRoot: true
-          ports:
-            - containerPort: 5432
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "100Mi"
+              ephemeral-storage: "1Gi"
+            limits:
+              cpu: "250m"
+              memory: "250Mi"
+              ephemeral-storage: "1Gi"
 
-      restartPolicy: Always
+      # Required for Artifact Registry access
+      serviceAccountName: default
 ---
 apiVersion: v1
 kind: Service
@@ -95,10 +119,10 @@ metadata:
   name: advancedchatbot-service
   namespace: advancedchatbot
 spec:
-  type: LoadBalancer
   selector:
     app: advancedchatbot
+  type: LoadBalancer
   ports:
-    - protocol: TCP
-      port: 80
+    - port: 80
       targetPort: 8000
+      protocol: TCP
