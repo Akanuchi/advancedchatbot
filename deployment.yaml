@@ -1,7 +1,7 @@
 # -------------------------------------------
 # 1. Kubernetes Service Account (KSA) for WI
-#    - This KSA must be created and annotated
-#      before applying this file (see previous steps)
+#    - This must be annotated with the GSA binding
+#      using the commands from the previous step.
 # -------------------------------------------
 apiVersion: v1
 kind: ServiceAccount
@@ -18,7 +18,7 @@ metadata:
   name: advancedchatbot
 ---
 # -------------------------------------------
-# 3. Deployment (Updated)
+# 3. Deployment (Updated for Workload Identity)
 # -------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -37,9 +37,8 @@ spec:
       labels:
         app: advancedchatbot
     spec:
-      # CRITICAL CHANGE: Use the new KSA for Workload Identity
+      # CRITICAL CHANGE 1: Use the new KSA for Workload Identity
       serviceAccountName: cloudsql-sa
-      # The rest of the pod spec follows...
       containers:
         # -------------------------------------------
         # MAIN APPLICATION CONTAINER
@@ -55,14 +54,13 @@ spec:
                 secretKeyRef:
                   name: app-secret
                   key: OPENAI_API_KEY
-            # Using 127.0.0.1 (localhost) and port 5432 which the proxy exposes
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secret
                   key: DATABASE_URL
 
-          # Health Checks (Keep the increased delays for safety)
+          # Health Checks (Keep the increased delays)
           livenessProbe:
             httpGet:
               path: /healthz
@@ -98,18 +96,20 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           args:
             - "--port=5432"
-            # Ensure this connection name is correct: ProjectID:Region:InstanceName
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
-            # ADDED: Telling the proxy to use the Workload Identity SA
+            # CRITICAL CHANGE 2: Tell the proxy to read the WI token
             - "--credentials-file=/var/run/secrets/tokens/gcp-sa/token"
           securityContext:
-            # BEST PRACTICE: Run as non-root and minimal user
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            # New, temporary security context for the proxy container to run as a lower UID/GID
             capabilities:
               drop:
                 - ALL
+          # CRITICAL CHANGE 3: Mount the volume where the token lives
+          volumeMounts:
+            - name: gcp-sa-token
+              mountPath: /var/run/secrets/tokens/gcp-sa
+              readOnly: true
           resources:
             requests:
               cpu: "100m"
@@ -119,9 +119,21 @@ spec:
               cpu: "250m"
               memory: "250Mi"
               ephemeral-storage: "1Gi"
+            
+      # CRITICAL CHANGE 4: Define the projected volume at the pod spec level
+      volumes:
+        - name: gcp-sa-token
+          projected:
+            defaultMode: 420
+            sources:
+              - serviceAccountToken:
+                  # Use your Project ID for the audience
+                  audience: advancedchatbot-479400.svc.id.goog
+                  expirationSeconds: 3600
+                  # This path must match the file name used in --credentials-file
+                  path: token
 
 ---
-
 # -------------------------------------------
 # 4. Service (Existing)
 # -------------------------------------------
