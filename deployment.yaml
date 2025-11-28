@@ -37,19 +37,20 @@ spec:
                   name: app-secret
                   key: OPENAI_API_KEY
             
-            # NEW: Single composite DATABASE_URL variable
+            # Use the single composite DATABASE_URL variable
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secret
                   key: DATABASE_URL
 
-          # Health Checks
+          # Health Checks - Increased initialDelaySeconds to give the Cloud SQL Proxy time to connect
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
-            initialDelaySeconds: 20
+            # Increased from 20s to 45s
+            initialDelaySeconds: 45 
             periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 5
@@ -58,7 +59,8 @@ spec:
             httpGet:
               path: /healthz
               port: 8000
-            initialDelaySeconds: 10
+            # Increased from 10s to 30s
+            initialDelaySeconds: 30 
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 5
@@ -80,7 +82,7 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           args:
             - "--port=5432"
-            # NOTE: Proxy connection name should be updated via GITHUB SECRET
+            # Ensure this connection name is correct: ProjectID:Region:InstanceName
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
           securityContext:
             runAsNonRoot: true
