@@ -1,7 +1,6 @@
 # -------------------------------------------
-# 1. Kubernetes Service Account (KSA) for WI
-#    - This must be annotated with the GSA binding
-#      using the commands from the previous step.
+# 1. Kubernetes Service Account (KSA)
+#    - Must be created and bound via gcloud commands
 # -------------------------------------------
 apiVersion: v1
 kind: ServiceAccount
@@ -18,7 +17,7 @@ metadata:
   name: advancedchatbot
 ---
 # -------------------------------------------
-# 3. Deployment (Updated for Workload Identity)
+# 3. Deployment (Finalized for Workload Identity)
 # -------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -37,7 +36,7 @@ spec:
       labels:
         app: advancedchatbot
     spec:
-      # CRITICAL CHANGE 1: Use the new KSA for Workload Identity
+      # CRITICAL CHANGE: Use the bound KSA for Workload Identity
       serviceAccountName: cloudsql-sa
       containers:
         # -------------------------------------------
@@ -60,7 +59,7 @@ spec:
                   name: app-secret
                   key: DATABASE_URL
 
-          # Health Checks (Keep the increased delays)
+          # Health Checks (Keeping increased delays)
           livenessProbe:
             httpGet:
               path: /healthz
@@ -97,15 +96,15 @@ spec:
           args:
             - "--port=5432"
             - "advancedchatbot-479400:us-east1:akanuchi-postgres"
-            # CRITICAL CHANGE 2: Tell the proxy to read the WI token
-            - "--credentials-file=/var/run/secrets/tokens/gcp-sa/token"
+            # CRITICAL CORRECTION: REMOVED --credentials-file 
+            # The proxy automatically detects the projected token.
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-          # CRITICAL CHANGE 3: Mount the volume where the token lives
+          # VolumeMount is still required to expose the token file
           volumeMounts:
             - name: gcp-sa-token
               mountPath: /var/run/secrets/tokens/gcp-sa
@@ -120,17 +119,15 @@ spec:
               memory: "250Mi"
               ephemeral-storage: "1Gi"
             
-      # CRITICAL CHANGE 4: Define the projected volume at the pod spec level
+      # Define the projected volume at the pod spec level
       volumes:
         - name: gcp-sa-token
           projected:
             defaultMode: 420
             sources:
               - serviceAccountToken:
-                  # Use your Project ID for the audience
                   audience: advancedchatbot-479400.svc.id.goog
                   expirationSeconds: 3600
-                  # This path must match the file name used in --credentials-file
                   path: token
 
 ---
