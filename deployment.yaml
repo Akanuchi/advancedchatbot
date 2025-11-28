@@ -1,6 +1,6 @@
 # -------------------------------------------
 # 1. Kubernetes Service Account (KSA)
-#    - Must be created and bound via gcloud commands
+#    - This must be created and bound via gcloud commands
 # -------------------------------------------
 apiVersion: v1
 kind: ServiceAccount
@@ -17,7 +17,7 @@ metadata:
   name: advancedchatbot
 ---
 # -------------------------------------------
-# 3. Deployment (Finalized for Workload Identity)
+# 3. Deployment (Finalized for Workload Identity and Region)
 # -------------------------------------------
 apiVersion: apps/v1
 kind: Deployment
@@ -36,7 +36,7 @@ spec:
       labels:
         app: advancedchatbot
     spec:
-      # CRITICAL CHANGE: Use the bound KSA for Workload Identity
+      # CRITICAL: Use the bound KSA for Workload Identity
       serviceAccountName: cloudsql-sa
       containers:
         # -------------------------------------------
@@ -95,16 +95,15 @@ spec:
           image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
           args:
             - "--port=5432"
-            - "advancedchatbot-479400:us-east1:akanuchi-postgres"
-            # CRITICAL CORRECTION: REMOVED --credentials-file 
-            # The proxy automatically detects the projected token.
+            # FINAL FIX: Corrected region from us-east1 to us-east4
+            - "advancedchatbot-479400:us-east4:akanuchi-postgres"
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-          # VolumeMount is still required to expose the token file
+          # VolumeMount for Workload Identity Token
           volumeMounts:
             - name: gcp-sa-token
               mountPath: /var/run/secrets/tokens/gcp-sa
@@ -119,7 +118,7 @@ spec:
               memory: "250Mi"
               ephemeral-storage: "1Gi"
             
-      # Define the projected volume at the pod spec level
+      # Define the projected volume for Workload Identity Token
       volumes:
         - name: gcp-sa-token
           projected:
