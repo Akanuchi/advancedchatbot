@@ -1,127 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Akanuchi Bright's PDF + Google Cloud SQL Chat Assistant</title>
-    <link rel="stylesheet" href="/static/style.css"> 
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      /* Keeping your cool gradient background */
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 700px;
-      margin: 40px auto;
-      background: #fff;
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-    h1 {
-      text-align: center;
-      color: #667eea;
-    }
-    label {
-      font-weight: 600;
-      display: block;
-      margin-top: 20px;
-    }
-    input[type="file"],
-    input[type="text"],
-    select {
-      width: 100%;
-      padding: 12px;
-      margin-top: 8px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-    }
-    button {
-      margin-top: 24px;
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease-in-out;
-    }
-    button:hover {
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-      transform: translateY(-2px);
-    }
-    .chat-history {
-      margin-top: 32px;
-      background: #f7fafc;
-      padding: 20px;
-      border-radius: 12px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .message {
-      margin-bottom: 16px;
-    }
-    .message strong {
-      font-weight: 700;
-    }
-    .message.user {
-      text-align: right;
-      color: #2b6cb0;
-      background-color: #ebf4ff;
-      padding: 10px;
-      border-radius: 8px 0px 8px 8px;
-    }
-    .message.bot {
-      text-align: left;
-      color: #2d3748;
-      background-color: #ffffff;
-      padding: 10px;
-      border-radius: 0px 8px 8px 8px;
-      border: 1px solid #e2e8f0;
-    }
-    .note {
-      font-size: 12px;
-      color: #4a5568;
-      margin-top: 8px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Akanuchi Bright's PDF + Google Cloud SQL Chat Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    
+    <style>
+        /* BASE & BACKGROUND */
+        body {
+            font-family: 'Roboto', sans-serif;
+            /* Deeper, more professional gradient */
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Full viewport height */
+        }
+        
+        /* CONTAINER */
+        .container {
+            width: 90%; /* Use a percentage for better mobile scaling */
+            max-width: 800px; /* Increased max width */
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 20px; /* Slightly rounder corners */
+            padding: 40px; /* Increased padding */
+            /* More pronounced, but softer shadow */
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+            /* Added a subtle glass/blur effect if possible, though easier with pure CSS */
+        }
+        
+        /* HEADER */
+        h1 {
+            text-align: center;
+            color: #182848; /* Darker header color */
+            font-weight: 700;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+            letter-spacing: 0.5px;
+        }
+        
+        /* FORM ELEMENTS */
+        label {
+            font-weight: 700; /* Bolder labels */
+            display: block;
+            margin-top: 25px;
+            color: #333;
+        }
+        
+        input[type="file"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 14px; /* More vertical padding */
+            margin-top: 8px;
+            border: none; /* Remove default border */
+            border-radius: 10px;
+            background-color: #f7f9fc; /* Light input background */
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1); /* Subtle inner shadow */
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.3); /* Focus ring effect */
+        }
+        
+        /* BUTTON */
+        button {
+            margin-top: 30px;
+            width: 100%;
+            padding: 16px; /* Larger click target */
+            /* New, vibrant gradient */
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease-in-out;
+        }
+        
+        button:hover {
+            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* CHAT HISTORY */
+        .chat-history {
+            margin-top: 40px;
+            background: #eef1f6; /* Soft background for chat area */
+            padding: 25px;
+            border-radius: 15px;
+            max-height: 400px; /* Increased height */
+            overflow-y: auto;
+            border: 1px solid #dee3eb;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            max-width: 80%; /* Messages shouldn't take up full width */
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+        
+        .message strong {
+            font-weight: 700;
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .message.user {
+            margin-left: auto; /* Push user message to the right */
+            text-align: left;
+            color: #ffffff;
+            background-color: #4b6cb7; /* Primary gradient color */
+            border-radius: 15px 15px 0 15px; /* Curved bubble shape */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message.bot {
+            margin-right: auto; /* Keep bot message on the left */
+            text-align: left;
+            color: #333;
+            background-color: #ffffff;
+            border-radius: 15px 15px 15px 0; /* Curved bubble shape */
+            border: 1px solid #dee3eb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .note {
+            font-size: 13px;
+            color: #6a7c93; /* Muted color for notes */
+            margin-top: 8px;
+            font-style: italic;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-        <h1>📄🔎 Akanuchi's PDF + Google Cloud SQL Assistant</h1> 
-    
-    <form method="post" action="/query" enctype="multipart/form-data">
-      <label for="retriever">Choose Mode:</label>
-      <select id="retriever" name="retriever" required>
-        <option value="vector">VectorStore (PDF)</option>
-        <option value="summary">Document Summary (PDF)</option>
-        <option value="keyword">Keyword Table (PDF)</option>
-                <option value="database">Google Cloud SQL Query</option> 
-      </select>
+    <div class="container">
+        <h1>📄🔎 Akanuchi's PDF + Google Cloud SQL Assistant 🤖</h1> 
+        
+        <form method="post" action="/query" enctype="multipart/form-data">
+            <label for="retriever">Choose Query Mode 🧠:</label>
+            <select id="retriever" name="retriever" required>
+                <option value="vector">VectorStore (PDF Retrieval)</option>
+                <option value="summary">Document Summary (PDF)</option>
+                <option value="keyword">Keyword Table (PDF)</option>
+                <option value="database">Google Cloud SQL Query 💾</option> 
+            </select>
 
-      <label for="file">Upload a PDF file (PDF modes only):</label>
-      <input type="file" id="file" name="file" accept=".pdf">
-      <div class="note">Leave empty when using Google Cloud SQL Query mode.</div>
+            <label for="file">Upload Document (PDF modes only) 📁:</label>
+            <input type="file" id="file" name="file" accept=".pdf">
+            <div class="note">Leave this field empty when using the Google Cloud SQL Query mode.</div>
 
-      <label for="question">Your Question:</label>
-      <input type="text" id="question" name="question" placeholder="Ask about your PDF or your database..." required>
+            <label for="question">Your Question/Query:</label>
+            <input type="text" id="question" name="question" placeholder="Ask about your document or generate a SQL query..." required>
 
-      <button type="submit">Ask</button>
-    </form>
+            <button type="submit">Ask the Assistant</button>
+        </form>
 
-    <div class="chat-history">
-      {% if question %}
-        <div class="message user"><strong>You:</strong> {{ question }}</div>
-      {% endif %}
-      {% if answer %}
-        <div class="message bot"><strong>Bot:</strong> {{ answer }}</div>
-      {% endif %}
-    </div>
-  </div>
+        <div class="chat-history">
+            {% if question %}
+                <div class="message user"><strong>You:</strong> {{ question }}</div>
+            {% endif %}
+            {% if answer %}
+                <div class="message bot"><strong>Assistant:</strong> {{ answer }}</div>
+            {% endif %}
+            {% if not question and not answer %}
+                <div class="message bot">
+                    <strong>Welcome!</strong> Choose a mode and upload your file or ask a question about your database to get started.
+                </div>
+            {% endif %}
+        </div>
+    </div>
 </body>
 </html>
