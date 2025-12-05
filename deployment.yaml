@@ -139,6 +139,7 @@ metadata:
   name: advancedchatbot-service
   namespace: advancedchatbot
 spec:
+  loadBalancerIP: "35.245.160.129"
   selector:
     app: advancedchatbot
   type: LoadBalancer
